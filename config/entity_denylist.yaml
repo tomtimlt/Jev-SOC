@@ -1,0 +1,15 @@
+# Entités "hub" qui relient presque toutes les alertes et ne doivent jamais créer de lien
+# entre deux alertes (sinon un seul cluster géant). Comparaison insensible à la casse.
+# À compléter avec les noms réels du lab (manager Wazuh, contrôleur de domaine, DNS...).
+users:
+  - SYSTEM
+  - LOCAL SERVICE
+  - NETWORK SERVICE
+processes:
+  - svchost.exe
+  - services.exe
+  - conhost.exe
+hosts:
+  - wazuh-manager
+ips:
+  - 127.0.0.1

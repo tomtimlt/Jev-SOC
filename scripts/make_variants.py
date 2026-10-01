@@ -1,5 +1,30 @@
-import json, pathlib
+"""Génère la matrice d'ablation : 3 scénarios x 4 variantes = 12 clusters labellisés.
 
+Scénarios :
+  attack       phishing -> PowerShell -> persistance -> dump lsass -> mouvement latéral -> exfiltration
+  benign       jumeau bénin (patching SCCM, scan Defender, rétention de logs, sauvegarde Azure)
+  adversarial  attaque déguisée en SCCM (mêmes noms, mais incohérences de contexte)
+
+Variantes :
+  full      tout le contexte
+  no_mitre  sans technique MITRE
+  no_level  sans niveau de règle
+  blind     descriptions sans indice de contexte (mêmes faits observables)
+
+Sortie : data/ablation/<scenario>__<variante>.json, au format des clusters labellisés lus
+par eval/eval.py : {scenario, variant, label, kill_chain_stage, notes, rule_levels, state}.
+
+Usage : python scripts/make_variants.py [--out data/ablation]
+"""
+
+import argparse
+import json
+import pathlib
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+VARIANTS = ("full", "no_mitre", "no_level", "blind")
+
+# fmt: off
 # (t, hôte, niveau, mitre, description_complète, description_aveugle)
 # description_aveugle = mêmes faits observables, sans aucun indice de contexte
 CLUSTERS = {
@@ -34,23 +59,84 @@ CLUSTERS = {
   ]),
 }
 
+# fmt: on
+
+# Vérité terrain de chaque scénario
+LABELS = {
+    "attack": dict(
+        label="attack",
+        kill_chain_stage="exfiltration",
+        notes="Chaîne complète phishing -> exfiltration vers un domaine récent",
+    ),
+    "benign": dict(
+        label="benign",
+        kill_chain_stage="none_benign",
+        notes="Hard negative : mêmes techniques et même niveau max que l'attaque",
+    ),
+    "adversarial": dict(
+        label="attack",
+        kill_chain_stage="exfiltration",
+        notes="LOTL déguisé en SCCM, exfiltration vers un stockage Azure hors inventaire",
+    ),
+}
+
+
 def build(name, variant):
     c = CLUSTERS[name]
     tl = []
     for t, host, lvl, mitre, full, blind in c["events"]:
-        e = {"t": t, "host": host, "level": lvl, "mitre": mitre,
-             "desc": blind if variant == "blind" else full}
-        if variant == "no_mitre": del e["mitre"]   # variante sans technique MITRE
-        if variant == "no_level": del e["level"]   # variante sans niveau de règle
+        e = {
+            "t": t,
+            "host": host,
+            "level": lvl,
+            "mitre": mitre,
+            "desc": blind if variant == "blind" else full,
+        }
+        if variant == "no_mitre":
+            del e["mitre"]  # variante sans technique MITRE
+        if variant == "no_level":
+            del e["level"]  # variante sans niveau de règle
         tl.append(e)
-    state = {"cluster_id": f"{name}-{variant}", "hosts": sorted({e["host"] for e in tl}),
-             "users": c["users"], "alert_count": len(tl), "timeline": tl}
+    state = {
+        "cluster_id": f"{name}-{variant}",
+        "hosts": sorted({e["host"] for e in tl}),
+        "users": c["users"],
+        "alert_count": len(tl),
+        "timeline": tl,
+    }
     if variant != "no_level":
         state["max_rule_level"] = max(e[2] for e in c["events"])
     return state
 
-out = pathlib.Path("variants"); out.mkdir(exist_ok=True)
-for name in CLUSTERS:
-    for variant in ("full", "no_mitre", "no_level", "blind"):
-        (out / f"{name}__{variant}.json").write_text(json.dumps(build(name, variant), indent=2))
-print(sorted(p.name for p in out.iterdir()))
+
+def labelled(name, variant):
+    """Cluster labellisé : le state envoyé au modèle + la vérité terrain + les niveaux réels.
+
+    `rule_levels` garde les niveaux de règle même en variante no_level : les baselines
+    doivent toujours voir les vraies alertes, seule l'entrée du modèle est ablatée.
+    """
+    return {
+        "scenario": name,
+        "variant": variant,
+        **LABELS[name],
+        "rule_levels": [e[2] for e in CLUSTERS[name]["events"]],
+        "state": build(name, variant),
+    }
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--out", default=ROOT / "data" / "ablation", type=pathlib.Path)
+    out = parser.parse_args(argv).out
+    out.mkdir(parents=True, exist_ok=True)
+    for name in CLUSTERS:
+        for variant in VARIANTS:
+            path = out / f"{name}__{variant}.json"
+            path.write_text(
+                json.dumps(labelled(name, variant), indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+            )
+    print(f"{len(CLUSTERS) * len(VARIANTS)} clusters écrits dans {out}")
+
+
+if __name__ == "__main__":
+    main()
