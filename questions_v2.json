@@ -1,0 +1,48 @@
+{
+  "is_sophisticated_attack": {
+    "type": "noul",
+    "instructions": "Taken together, do these alerts describe a coordinated multi-stage intrusion rather than unrelated benign activity?",
+    "criteria": {
+      "true": "The alerts form a causal chain of attacker actions across stages",
+      "false": "The alerts are coincidental, administrative, or benign noise"
+    }
+  },
+  "furthest_stage": {
+    "type": "choice",
+    "instructions": "If this cluster is malicious, what is the furthest kill chain stage reached? If it is benign administrative activity, answer none_benign.",
+    "criteria": {
+      "none_benign": "Legitimate admin, patching, backup, or scanning activity",
+      "initial_access": null,
+      "execution": null,
+      "persistence": null,
+      "privilege_escalation": "Gaining higher privileges or credentials",
+      "lateral_movement": "Moving from one host to another",
+      "collection": "Gathering or staging data",
+      "exfiltration": "Data sent to an unauthorized destination",
+      "impact": "Encryption, destruction, or disruption"
+    }
+  },
+  "priority": {
+    "type": "score",
+    "instructions": "What triage priority should a SOC analyst assign to this cluster?",
+    "criteria": [
+      "P0 - informational, no action",
+      "P1 - low, review in the daily batch",
+      "P2 - medium, investigate today",
+      "P3 - high, investigate within one hour",
+      "P4 - critical, immediate response"
+    ]
+  },
+  "unauthorized_exfiltration": {
+    "type": "noul",
+    "instructions": "Is it likely that data was sent to a destination the organization does not own or sanction?"
+  },
+  "should_contain_now": {
+    "type": "noul",
+    "instructions": "Should hosts or accounts be isolated immediately?"
+  },
+  "should_escalate_to_ir": {
+    "type": "noul",
+    "instructions": "Should the incident response process be triggered?"
+  }
+}

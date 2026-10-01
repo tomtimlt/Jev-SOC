@@ -1,0 +1,63 @@
+{
+  "cluster_id": "attack-no_mitre",
+  "hosts": [
+    "SRV-FILE-02",
+    "WS-FIN-07"
+  ],
+  "users": [
+    "j.martin",
+    "svc_backup"
+  ],
+  "alert_count": 8,
+  "timeline": [
+    {
+      "t": "+0m",
+      "host": "WS-FIN-07",
+      "level": 5,
+      "desc": "OUTLOOK.EXE spawned WINWORD.EXE opening attachment Facture_Q3.docm"
+    },
+    {
+      "t": "+1m",
+      "host": "WS-FIN-07",
+      "level": 6,
+      "desc": "WINWORD.EXE spawned powershell.exe with -EncodedCommand"
+    },
+    {
+      "t": "+3m",
+      "host": "WS-FIN-07",
+      "level": 4,
+      "desc": "Scheduled task 'OneDriveSyncCheck' created, runs %APPDATA%\\upd.ps1 at logon"
+    },
+    {
+      "t": "+47m",
+      "host": "WS-FIN-07",
+      "level": 7,
+      "desc": "rundll32.exe accessed lsass.exe memory (GrantedAccess 0x1010)"
+    },
+    {
+      "t": "+52m",
+      "host": "SRV-FILE-02",
+      "level": 5,
+      "desc": "Network logon (type 3) by svc_backup from WS-FIN-07 to ADMIN$ - first time this pair is seen"
+    },
+    {
+      "t": "+53m",
+      "host": "SRV-FILE-02",
+      "level": 6,
+      "desc": "New service installed with random name, binary in C:\\Windows\\Temp"
+    },
+    {
+      "t": "+180m",
+      "host": "SRV-FILE-02",
+      "level": 3,
+      "desc": "7z.exe created password-protected archive of D:\\Finance (2.3 GB)"
+    },
+    {
+      "t": "+214m",
+      "host": "SRV-FILE-02",
+      "level": 4,
+      "desc": "Outbound HTTPS 2.1 GB to cdn-sync-storage[.]top, domain first seen 3 days ago"
+    }
+  ],
+  "max_rule_level": 7
+}
