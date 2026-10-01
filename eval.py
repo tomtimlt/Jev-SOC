@@ -30,6 +30,12 @@ def call(state: dict) -> dict:
     except urllib.error.HTTPError as e:
         return {"_error": e.code, "_body": e.read().decode(errors="replace")}
 
+def scalar(v):
+    """Réduit une réponse {type: noul|score, ...} à sa valeur numérique."""
+    if isinstance(v, dict):
+        return v.get(v.get("type"), v)
+    return v
+
 def find(obj, key):
     """Cherche `key` récursivement dans la réponse brute."""
     if isinstance(obj, dict):
@@ -58,7 +64,7 @@ for c in CLUSTERS:
             continue
         resp = call(state)
         (out / f"{c}__{v}.json").write_text(json.dumps(resp, indent=2))
-        grid[(c, v)] = {k: find(resp, k) for k in KEYS}
+        grid[(c, v)] = {k: scalar(find(resp, k)) for k in KEYS}
         print(c, v, grid[(c, v)], flush=True)
 
 if grid:
