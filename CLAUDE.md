@@ -255,8 +255,18 @@ jev-soc/
   `client.system_one(state=<dict>, questions=<dict>)`. Réponses : `noul` → `{"noul": p}`,
   `choice` → `{"choice", "confidence", "probabilities"}`, `score` → `{"score", "confidence",
   "legend", "probabilities"}`. `JevBackend` les convertit vers `jevsoc.models`.
-- Clusters labellisés (`data/ablation/*.json`) : `{scenario, variant, label, kill_chain_stage,
-  notes, rule_levels, state}`. `rule_levels` = vrais niveaux, utilisés par les baselines même
-  quand le `state` les cache (variante `no_level`).
-- Split fixé par scénario dans `data/splits.yaml`.
-- Prochaines tâches : jeu de 20 clusters (jalon 2), puis sérialiseur + correlator, puis `LayaBackend`.
+- Clusters labellisés (`data/ablation/*.json`, `data/ait/*.json`) : `{scenario, variant, label,
+  kill_chain_stage, notes, rule_levels, state}`. `rule_levels` = vrais niveaux, utilisés par les
+  baselines même quand le `state` les cache (variante `no_level`).
+- Split fixé par scénario dans `data/splits.yaml`. AIT : fox, harrison, wheeler = validation
+  (choix des seuils) ; les 5 autres = test. Ne jamais régler un seuil sur le test.
+- Vraies données : AIT-ADS (CC-BY 4.0), voir `data/README.md`. Bruts dans `data/raw/` (ignoré).
+- Correlator : les hubs sont les entités présentes en continu dans le TEMPS (pas en nombre
+  d'alertes, sinon un attaquant bruyant devient un hub) ; la règle Wazuh est aussi une entité
+  (rafales derrière un proxy). Sérialiseur `state_version` 2 : rafales fusionnées, lignes rares
+  prioritaires.
+- Résultat clé (README) : Jev trouve 7/8 chaînes multi-étapes à 0 faux positif/jour, contre
+  4/8 et 58 FP/jour pour `max_level >= 7` ; il ne signale pas les scans seuls (complémentaire
+  d'une règle de volume).
+- Prochaines tâches : correlator incrémental + démo live, `LayaBackend`, recalibration des
+  probabilités (température) sur la validation, plus de chaînes multi-étapes (lab Windows).

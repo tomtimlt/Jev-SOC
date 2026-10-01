@@ -22,7 +22,10 @@ jev:
 policy:
   sophisticated_low: 0.3        # en dessous (et priorité basse) : monitor
   sophisticated_high: 0.7       # au-dessus : attaque probable
-  priority_monitor_max: 2.0     # priorité max pour rester en monitor
+  # Priorité max pour rester en monitor. 2,0 (réglé sur 3 scénarios synthétiques) envoyait 67 % des
+  # bénins AIT en investigate ; 3,0 = plus petite valeur sans bénin en investigate sur la VALIDATION
+  # AIT (0/90), toutes les chaînes multi-étapes de validation restant au-dessus de monitor.
+  priority_monitor_max: 3.0
   contain_min: 0.7              # seuil de should_contain_now
   escalate_min: 0.7             # seuil de should_escalate_to_ir
   # Garde-fou : contain / escalate seulement si P(attaque) >= sophisticated_high ET au moins
@@ -35,8 +38,11 @@ policy:
 # Corrélation (jalon 3)
 correlation:
   window_minutes: 240
-  max_cluster_size: 200
-  hub_entity_max_ratio: 0.2   # une entité présente dans plus de 20 % des alertes ne crée pas de lien
+  max_cluster_size: 100000    # au-delà, découpage en tranches ; le sérialiseur regroupe les répétitions,
+                              # donc une rafale de scan reste UN cluster au lieu de dizaines de morceaux
+  max_gap_minutes: 60         # écart max entre deux alertes partageant une entité pour les relier
+  hub_entity_max_ratio: 0.2   # entité vue dans plus de 20 % des HEURES = hub, ne crée pas de lien
+  max_timeline_entries: 30    # groupes d'alertes max dans le state envoyé au modèle
   min_alerts: 3
   min_entities: 2
   denylist_file: entity_denylist.yaml

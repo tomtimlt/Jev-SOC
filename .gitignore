@@ -11,3 +11,6 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .venv/
+
+# Jeux de données bruts téléchargés (trop gros pour git ; voir data/README)
+data/raw/

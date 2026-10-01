@@ -7,3 +7,15 @@
 attack: test
 benign: test
 adversarial: test
+
+# AIT-ADS (vraies alertes Wazuh, data/ait/) : split par scénario, fixé.
+# validation : sert UNIQUEMENT à choisir les seuils (eval.py, section "seuils choisis sur validation")
+# test       : sert à mesurer ; ne jamais régler quoi que ce soit dessus
+fox: validation
+harrison: validation
+wheeler: validation
+russellmitchell: test
+santos: test
+shaw: test
+wardbeck: test
+wilson: test
