@@ -8,6 +8,9 @@ backend: mock
 # Jeu de questions typées (la version "v2" est déduite du nom de fichier)
 questions_file: questions.v2.json
 
+# Recalibration des probabilités par backend (produite par eval/calibrate.py sur la VALIDATION)
+calibration_file: calibration.yaml
+
 mock:
   # Optionnel : fichier JSON {cluster_id: {question: réponse}} pour imposer des réponses précises.
   # Sans fichier, le mock renvoie des réponses neutres (0,5, milieu d'échelle).
@@ -20,7 +23,10 @@ jev:
 # Seuils de la politique de décision (src/jevsoc/policy.py). Valeurs initiales à calibrer
 # sur le split de validation, pas des vérités.
 policy:
-  sophisticated_low: 0.3        # en dessous (et priorité basse) : monitor
+  # En dessous (et priorité basse) : monitor. Échelle CALIBRÉE quand config/calibration.yaml existe
+  # pour le backend. 0,15 = choisi sur la validation AIT (eval/calibrate.py) : garde les 3 chaînes
+  # de validation, 0/90 bénin au-dessus. Rater une APT coûte plus cher qu'un coup d'œil d'analyste.
+  sophisticated_low: 0.15
   sophisticated_high: 0.7       # au-dessus : attaque probable
   # Priorité max pour rester en monitor. 2,0 (réglé sur 3 scénarios synthétiques) envoyait 67 % des
   # bénins AIT en investigate ; 3,0 = plus petite valeur sans bénin en investigate sur la VALIDATION
@@ -33,6 +39,10 @@ policy:
   # P(isoler) et P(escalader) à 0,7-0,9, même sur du patching bénin.
   action_min_alerts: 2
   low_confidence_max: 0.5       # marge |2p-1| sur P(attaque) en dessous de laquelle on doute
+  # Règle de volume (complément du modèle pour les scans / brute force) : un cluster d'au moins
+  # N alertes passe au minimum en investigate. Jamais contain / escalate. Choisi sur la validation
+  # par eval/calibrate.py.
+  volume_min_alerts: 89        # = plus gros cluster bénin de validation (88) + 1
   exfil_inconsistency_max: 0.3  # étape "exfiltration" mais P(exfiltration non autorisée) sous ce seuil
 
 # Corrélation (jalon 3)

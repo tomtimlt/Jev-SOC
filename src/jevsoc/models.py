@@ -81,7 +81,9 @@ class Derived(BaseModel):
 
     recommended_action: Action  # action principale (la plus grave)
     actions: list[Action]  # toutes les actions retenues : contain et escalate ne s'excluent pas
+    p_attack: float  # P(attaque) utilisée pour décider : calibrée si une calibration est fournie
+    calibrated: bool  # True si p_attack vient de la calibration (et non de la réponse brute)
     confidence_overall: float  # marge |2p - 1| sur P(attaque) : 0 = pile ou face, 1 = certain
-    flags: list[Literal["inconsistent", "low_confidence"]]
+    flags: list[Literal["inconsistent", "low_confidence", "high_volume"]]
     inconsistencies: list[str]  # contradictions détectées entre réponses, en clair
     justification: str  # phrase construite de façon déterministe

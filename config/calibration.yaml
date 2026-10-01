@@ -1,0 +1,12 @@
+# Généré par eval/calibrate.py (ne pas éditer à la main). Ajusté sur la VALIDATION uniquement.
+jev:
+  is_sophisticated_attack:
+    a: 2.0467
+    b: -1.8937
+    target: chaîne multi-étapes (attaque au-delà de la reconnaissance)
+    fitted_on: 'AIT-ADS, scénarios de validation : fox, harrison, wheeler'
+    n_positive: 3
+    n_negative: 116
+    model_name: jev-1.13.0
+    questions_version: v2
+    state_version: '2'

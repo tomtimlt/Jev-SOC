@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 
+from jevsoc.calibration import Calibrator
 from jevsoc.models import ACTION_ORDER, Decision, Derived
 
 ATTACK = "is_sophisticated_attack"
@@ -42,9 +43,8 @@ def choose_actions(
     return ["investigate"]
 
 
-def find_inconsistencies(decision: Decision, t: dict) -> list[str]:
-    """Contradictions entre réponses indépendantes, décrites en clair."""
-    p_attack = decision.noul(ATTACK)
+def find_inconsistencies(decision: Decision, p_attack: float, t: dict) -> list[str]:
+    """Contradictions entre réponses indépendantes, décrites en clair (p_attack éventuellement calibrée)."""
     issues = []
     if STAGE in decision.answers:
         stage = decision.choice(STAGE)
@@ -75,7 +75,9 @@ def _minutes(offset: str) -> int:
     return int(match.group(1)) if match else 0
 
 
-def build_justification(state: dict, decision: Decision, actions: list[str]) -> str:
+def build_justification(
+    state: dict, decision: Decision, p_attack: float, calibrated: bool, actions: list[str]
+) -> str:
     """Phrase déterministe : faits du cluster + probabilités clés + action. Aucun texte généré."""
     timeline = state.get("timeline", [])
     count = state.get("alert_count", len(timeline))
@@ -91,7 +93,7 @@ def build_justification(state: dict, decision: Decision, actions: list[str]) -> 
     parts = [f"{count} alertes, {hosts} hôte{'s' if hosts > 1 else ''}, {minutes} min"]
     if mitre:
         parts.append(" → ".join(mitre))
-    probs = [f"P(sophistiqué)={decision.noul(ATTACK):.2f}"]
+    probs = [f"P(sophistiqué)={p_attack:.2f}{' (calibrée)' if calibrated else ''}"]
     if PRIORITY in decision.answers:
         probs.append(f"priorité={decision.score(PRIORITY):.2f}/4")
     if STAGE in decision.answers:
@@ -101,29 +103,54 @@ def build_justification(state: dict, decision: Decision, actions: list[str]) -> 
     return " ; ".join(parts)
 
 
-def policy(decision: Decision, state: dict, thresholds: dict) -> Derived:
-    """Point d'entrée : réponses brutes + state du cluster -> Derived."""
+def policy(
+    decision: Decision,
+    state: dict,
+    thresholds: dict,
+    calibration: dict[str, Calibrator] | None = None,
+) -> Derived:
+    """Point d'entrée : réponses brutes + state du cluster (+ calibration éventuelle) -> Derived.
+
+    `calibration` : {nom de question: Calibrator}, ajusté sur la validation (jevsoc.calibration).
+    Les seuils `sophisticated_*` s'appliquent alors à la probabilité calibrée.
+    """
     t = thresholds
-    p_attack = decision.noul(ATTACK)
+    raw = decision.noul(ATTACK)
+    calibrator = (calibration or {}).get(ATTACK)
+    p_attack = calibrator(raw) if calibrator else raw
     priority = decision.score(PRIORITY) if PRIORITY in decision.answers else 0.0
     contain = decision.noul(CONTAIN) if CONTAIN in decision.answers else 0.0
     escalate = decision.noul(ESCALATE) if ESCALATE in decision.answers else 0.0
     alert_count = state.get("alert_count", len(state.get("timeline", [])))
 
     actions = choose_actions(p_attack, priority, contain, escalate, alert_count, t)
-    confidence = abs(2 * p_attack - 1)
-    inconsistencies = find_inconsistencies(decision, t)
     flags = []
+    # Règle de volume, complémentaire du modèle : une rafale (scan, brute force) n'est pas une
+    # intrusion multi-étapes, donc le modèle la laisse passer à raison ; mais elle mérite
+    # qu'un analyste y jette un œil. Elle ne déclenche jamais contain / escalate.
+    volume_min = t.get("volume_min_alerts")
+    if volume_min and alert_count >= volume_min:
+        flags.append("high_volume")
+        if actions == ["monitor"]:
+            actions = ["investigate"]
+
+    confidence = abs(2 * p_attack - 1)
+    inconsistencies = find_inconsistencies(decision, p_attack, t)
     if inconsistencies:
         flags.append("inconsistent")
     if confidence < t["low_confidence_max"]:
         flags.append("low_confidence")
 
+    justification = build_justification(state, decision, p_attack, calibrator is not None, actions)
+    if "high_volume" in flags:
+        justification += f" ; rafale de {alert_count} alertes"
     return Derived(
         recommended_action=max(actions, key=ACTION_ORDER.index),
         actions=actions,
+        p_attack=p_attack,
+        calibrated=calibrator is not None,
         confidence_overall=confidence,
         flags=flags,
         inconsistencies=inconsistencies,
-        justification=build_justification(state, decision, actions),
+        justification=justification,
     )

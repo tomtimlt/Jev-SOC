@@ -62,8 +62,8 @@ def test_gate_blocks_actions_on_single_alert():
 
 
 def test_gate_blocks_actions_when_attack_unlikely():
-    # Cas du patching SCCM bénin : P(attaque)=0,20 mais P(escalader)=0,81.
-    derived = policy(decision(0.2, 2.8, contain=0.67, escalate=0.81), STATE, THRESHOLDS)
+    # Cas du patching SCCM bénin : P(attaque) basse mais P(escalader)=0,81.
+    derived = policy(decision(0.1, 2.8, contain=0.67, escalate=0.81), STATE, THRESHOLDS)
     assert "escalate" not in derived.actions
     assert "inconsistent" in derived.flags
     assert any("escalader" in issue for issue in derived.inconsistencies)
@@ -87,3 +87,20 @@ def test_justification_is_deterministic():
         "3 alertes, 2 hôtes, 214 min ; T1566.001 → T1059.001 ; "
         "P(sophistiqué)=0.97, priorité=3.99/4, étape=exfiltration ; action : contain + escalate"
     )
+
+
+def test_volume_rule_raises_monitor_to_investigate_but_never_contains():
+    burst = {**STATE, "alert_count": 5000}
+    derived = policy(decision(0.05, 1.0, contain=0.9, escalate=0.9), burst, THRESHOLDS)
+    assert derived.actions == ["investigate"] and "high_volume" in derived.flags
+    assert "rafale de 5000 alertes" in derived.justification
+
+
+def test_calibration_is_applied_before_thresholds():
+    from jevsoc.calibration import Calibrator
+
+    raw = decision(0.5, 1.0)
+    assert policy(raw, STATE, THRESHOLDS).p_attack == 0.5
+    calibrated = policy(raw, STATE, THRESHOLDS, {"is_sophisticated_attack": Calibrator(a=2.0, b=-2.0)})
+    assert calibrated.calibrated and calibrated.p_attack == pytest.approx(0.119, abs=1e-3)
+    assert "(calibrée)" in calibrated.justification

@@ -47,14 +47,21 @@ def test_committed_data_is_up_to_date(tmp_path):
 
 def test_eval_end_to_end_with_mock(capsys):
     result = eval_script.main(["--backend", "mock"])
-    assert result["n"] == 12 and result["n_attack"] == 8
+    assert result["n"] == 12 and result["n_attack"] == 8 and result["n_multistage"] == 8
+    assert not result["calibrated"]  # pas de calibration pour le backend mock
     # Mock neutre : P = 0,5 partout -> tout est prédit "attaque"
-    model = result["methods"]["model"]
+    model = result["all_attacks"]["jev brut >=0.5"]
     assert model["recall"] == 1.0 and model["precision"] == pytest.approx(8 / 12)
     assert model["auc"] == 0.5 and model["brier"] == pytest.approx(0.25)
     # Les trois scénarios ont max_level = 7 : la baseline ne sépare rien
-    assert result["methods"]["max_level>=7"]["auc"] == 0.5
-    assert "Modèle vs baselines" in capsys.readouterr().out
+    assert result["all_attacks"]["max_level>=7"]["auc"] == 0.5
+    assert "Chaînes multi-étapes contre bénins" in capsys.readouterr().out
+
+
+def test_eval_replay_reuses_recorded_decisions(tmp_path, capsys):
+    first = eval_script.main(["--backend", "mock", "--out", str(tmp_path / "r.json")])
+    again = eval_script.main(["--replay", str(tmp_path / "r.json")])
+    assert again["all_attacks"] == first["all_attacks"]
 
 
 def test_eval_split_filter():
