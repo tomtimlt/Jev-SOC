@@ -17,16 +17,20 @@ jev:
   model: jev-latest
   timeout_s: 120
 
-# Seuils de la politique de décision (jalon suivant). Valeurs initiales à calibrer
+# Seuils de la politique de décision (src/jevsoc/policy.py). Valeurs initiales à calibrer
 # sur le split de validation, pas des vérités.
 policy:
-  sophisticated_low: 0.3
-  sophisticated_high: 0.7
-  priority_monitor_max: 2.0
-  priority_investigate_max: 3.0
-  contain_min: 0.7
-  escalate_min: 0.7
-  low_confidence_max: 0.5
+  sophisticated_low: 0.3        # en dessous (et priorité basse) : monitor
+  sophisticated_high: 0.7       # au-dessus : attaque probable
+  priority_monitor_max: 2.0     # priorité max pour rester en monitor
+  contain_min: 0.7              # seuil de should_contain_now
+  escalate_min: 0.7             # seuil de should_escalate_to_ir
+  # Garde-fou : contain / escalate seulement si P(attaque) >= sophisticated_high ET au moins
+  # action_min_alerts alertes. Mesuré sur la courbe de soupçon : sur UNE alerte, Jev met déjà
+  # P(isoler) et P(escalader) à 0,7-0,9, même sur du patching bénin.
+  action_min_alerts: 2
+  low_confidence_max: 0.5       # marge |2p-1| sur P(attaque) en dessous de laquelle on doute
+  exfil_inconsistency_max: 0.3  # étape "exfiltration" mais P(exfiltration non autorisée) sous ce seuil
 
 # Corrélation (jalon 3)
 correlation:

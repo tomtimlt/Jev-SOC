@@ -69,3 +69,19 @@ class Decision(BaseModel):
         if not isinstance(answer, expected_type):
             raise KeyError(f"question '{name}' absente ou pas de type {expected_type.__name__}")
         return answer
+
+
+# Du moins grave au plus grave : l'action principale est la plus grave des actions retenues.
+ACTION_ORDER = ("monitor", "investigate", "escalate", "contain")
+Action = Literal["monitor", "investigate", "escalate", "contain"]
+
+
+class Derived(BaseModel):
+    """Ce que le backend déduit des réponses brutes (calculé par jevsoc.policy, jamais par le modèle)."""
+
+    recommended_action: Action  # action principale (la plus grave)
+    actions: list[Action]  # toutes les actions retenues : contain et escalate ne s'excluent pas
+    confidence_overall: float  # marge |2p - 1| sur P(attaque) : 0 = pile ou face, 1 = certain
+    flags: list[Literal["inconsistent", "low_confidence"]]
+    inconsistencies: list[str]  # contradictions détectées entre réponses, en clair
+    justification: str  # phrase construite de façon déterministe

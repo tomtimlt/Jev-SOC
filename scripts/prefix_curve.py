@@ -20,6 +20,7 @@ from pathlib import Path
 
 from jevsoc.backends import build_backend
 from jevsoc.config import DEFAULT_CONFIG, load_config
+from jevsoc.policy import policy
 
 ROOT = Path(__file__).resolve().parents[1]
 SCENARIOS = ("attack", "benign", "adversarial")
@@ -51,13 +52,14 @@ def prefix_state(scenario: str, k: int) -> dict:
     }
 
 
-def run(backend) -> list[dict]:
+def run(backend, thresholds: dict) -> list[dict]:
     rows = []
     for scenario in SCENARIOS:
         n = len(make_variants.CLUSTERS[scenario]["events"])
         for k in range(1, n + 1):
             state = prefix_state(scenario, k)
             d = backend.decide(state)
+            derived = policy(d, state, thresholds)
             rows.append(
                 {
                     "scenario": scenario,
@@ -68,6 +70,8 @@ def run(backend) -> list[dict]:
                     "stage": d.choice("furthest_stage"),
                     "contain": d.noul("should_contain_now"),
                     "escalate": d.noul("should_escalate_to_ir"),
+                    "action": " + ".join(derived.actions),
+                    "flags": ", ".join(derived.flags),
                     "latency_ms": d.latency_ms,
                 }
             )
@@ -77,13 +81,13 @@ def run(backend) -> list[dict]:
 def print_rows(rows: list[dict]) -> None:
     for scenario in SCENARIOS:
         print(
-            f"\n## {scenario}\n| k | Dernière alerte | P(attaque) | Priorité | Étape | Isoler | Escalader |"
+            f"\n## {scenario}\n| k | Dernière alerte | P(attaque) | Priorité | Étape | Isoler | Escalader | Action | Drapeaux |"
         )
-        print("|---|---|---|---|---|---|---|")
+        print("|---|---|---|---|---|---|---|---|---|")
         for r in (r for r in rows if r["scenario"] == scenario):
             print(
                 f"| {r['k']} | {r['last_alert'][:60]} | {r['p_attack']:.2f} | {r['priority']:.2f} "
-                f"| {r['stage']} | {r['contain']:.2f} | {r['escalate']:.2f} |"
+                f"| {r['stage']} | {r['contain']:.2f} | {r['escalate']:.2f} | {r['action']} | {r['flags'] or '-'} |"
             )
 
 
@@ -94,7 +98,8 @@ def main(argv: list[str] | None = None) -> list[dict]:
     parser.add_argument("--out", type=Path)
     args = parser.parse_args(argv)
 
-    rows = run(build_backend(load_config(args.config), args.backend))
+    config = load_config(args.config)
+    rows = run(build_backend(config, args.backend), config["policy"])
     print_rows(rows)
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
