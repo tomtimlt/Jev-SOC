@@ -1,1 +1,13 @@
+# Secrets : la clé API et les mots de passe Wazuh restent dans l'environnement
+.env
+
+# Réponses brutes et sorties d'évaluation locales
 results/
+eval/results/
+
+# Python
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.venv/

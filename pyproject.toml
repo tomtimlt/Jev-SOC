@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jevsoc"
+version = "0.1.0"
+description = "Triage corrélé d'alertes Wazuh par un modèle de décision System One (Jev / Laya)"
+requires-python = ">=3.10"
+# Dépendances minimales : le reste (OpenSearch, FastAPI, WeasyPrint, Laya) arrive avec les jalons.
+dependencies = [
+    "pydantic>=2.6",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+jev = ["typesafe-sdk>=0.7"]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# Longueur des lignes gérée par `ruff format` ; les descriptions d'alertes restent entières.
+ignore = ["E501"]

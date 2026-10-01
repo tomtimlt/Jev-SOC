@@ -1,0 +1,38 @@
+# Configuration de Jev-SOC.
+# Les chemins relatifs sont résolus par rapport au dossier de ce fichier (config/).
+# Aucun secret ici : la clé Jev est lue dans la variable d'environnement TYPESAFE_API_KEY.
+
+# Backend de décision : mock | jev | laya
+backend: mock
+
+# Jeu de questions typées (la version "v2" est déduite du nom de fichier)
+questions_file: questions.v2.json
+
+mock:
+  # Optionnel : fichier JSON {cluster_id: {question: réponse}} pour imposer des réponses précises.
+  # Sans fichier, le mock renvoie des réponses neutres (0,5, milieu d'échelle).
+  fixtures: null
+
+jev:
+  model: jev-latest
+  timeout_s: 120
+
+# Seuils de la politique de décision (jalon suivant). Valeurs initiales à calibrer
+# sur le split de validation, pas des vérités.
+policy:
+  sophisticated_low: 0.3
+  sophisticated_high: 0.7
+  priority_monitor_max: 2.0
+  priority_investigate_max: 3.0
+  contain_min: 0.7
+  escalate_min: 0.7
+  low_confidence_max: 0.5
+
+# Corrélation (jalon 3)
+correlation:
+  window_minutes: 240
+  max_cluster_size: 200
+  hub_entity_max_ratio: 0.2   # une entité présente dans plus de 20 % des alertes ne crée pas de lien
+  min_alerts: 3
+  min_entities: 2
+  denylist_file: entity_denylist.yaml

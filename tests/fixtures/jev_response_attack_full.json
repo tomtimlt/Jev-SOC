@@ -1,0 +1,60 @@
+{
+  "model": "jev-1.13.0",
+  "answers": {
+    "is_sophisticated_attack": {
+      "type": "noul",
+      "noul": 0.98
+    },
+    "furthest_stage": {
+      "type": "choice",
+      "choice": "exfiltration",
+      "confidence": 1.0,
+      "probabilities": {
+        "exfiltration": 1.0,
+        "execution": 0.0,
+        "initial_access": 0.0,
+        "persistence": 0.0,
+        "privilege_escalation": 0.0,
+        "lateral_movement": 0.0,
+        "collection": 0.0,
+        "impact": 0.0,
+        "none_benign": 0.0
+      }
+    },
+    "priority": {
+      "type": "score",
+      "score": 3.99,
+      "confidence": 0.99,
+      "legend": {
+        "0": "P0 - informational, no action",
+        "1": "P1 - low, review in the daily batch",
+        "2": "P2 - medium, investigate today",
+        "3": "P3 - high, investigate within one hour",
+        "4": "P4 - critical, immediate response"
+      },
+      "probabilities": {
+        "0": 0.0,
+        "1": 0.0,
+        "2": 0.0,
+        "3": 0.01,
+        "4": 0.99
+      }
+    },
+    "unauthorized_exfiltration": {
+      "type": "noul",
+      "noul": 0.94
+    },
+    "should_contain_now": {
+      "type": "noul",
+      "noul": 0.97
+    },
+    "should_escalate_to_ir": {
+      "type": "noul",
+      "noul": 0.98
+    }
+  },
+  "usage": {
+    "input_tokens": 1247,
+    "output_tokens": 200
+  }
+}

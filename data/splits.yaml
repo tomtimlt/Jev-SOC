@@ -1,0 +1,9 @@
+# Split train / validation / test, fixé par SCÉNARIO et non par fichier :
+# toutes les variantes d'un même scénario restent dans le même split (pas de fuite).
+#
+# État actuel : seulement 3 scénarios de démonstration, tous en "test". Ils ne servent
+# qu'à la matrice d'ablation, pas à calibrer. Le vrai split arrive avec le jeu de
+# 20 clusters (jalon 2) ; une fois publié, ne plus déplacer un scénario.
+attack: test
+benign: test
+adversarial: test
