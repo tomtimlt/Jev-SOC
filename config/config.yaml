@@ -24,14 +24,15 @@ jev:
 # sur le split de validation, pas des vérités.
 policy:
   # En dessous (et priorité basse) : monitor. Échelle CALIBRÉE quand config/calibration.yaml existe
-  # pour le backend. 0,15 = choisi sur la validation AIT (eval/calibrate.py) : garde les 3 chaînes
-  # de validation, 0/90 bénin au-dessus. Rater une APT coûte plus cher qu'un coup d'œil d'analyste.
-  sophisticated_low: 0.15
+  # pour le backend. 0,14 = milieu de l'écart, sur la validation AIT, entre le bénin le plus suspect
+  # (0,02) et la chaîne la moins suspecte (0,26) : marge maximale (eval/calibrate.py).
+  sophisticated_low: 0.14
   sophisticated_high: 0.7       # au-dessus : attaque probable
-  # Priorité max pour rester en monitor. 2,0 (réglé sur 3 scénarios synthétiques) envoyait 67 % des
-  # bénins AIT en investigate ; 3,0 = plus petite valeur sans bénin en investigate sur la VALIDATION
-  # AIT (0/90), toutes les chaînes multi-étapes de validation restant au-dessus de monitor.
-  priority_monitor_max: 3.0
+  # Priorité max pour rester en monitor. 4,0 = règle DÉSACTIVÉE : la priorité donnée par le modèle
+  # n'est pas calibrée (bénins à 2,x sur AIT, 3,2-3,7 sur Windows/APT29) et, sur la validation AIT,
+  # elle ne fait remonter aucune chaîne que P(attaque) calibrée ne voit déjà. Constat fait sur le
+  # test APT29 (précision du système complet 0,31 avec 3,0) : documenté dans le README.
+  priority_monitor_max: 4.0
   contain_min: 0.7              # seuil de should_contain_now
   escalate_min: 0.7             # seuil de should_escalate_to_ir
   # Garde-fou : contain / escalate seulement si P(attaque) >= sophisticated_high ET au moins
@@ -42,7 +43,7 @@ policy:
   # Règle de volume (complément du modèle pour les scans / brute force) : un cluster d'au moins
   # N alertes passe au minimum en investigate. Jamais contain / escalate. Choisi sur la validation
   # par eval/calibrate.py.
-  volume_min_alerts: 89        # = plus gros cluster bénin de validation (88) + 1
+  volume_min_alerts: 65        # = plus gros cluster bénin de validation AIT (64) + 1
   exfil_inconsistency_max: 0.3  # étape "exfiltration" mais P(exfiltration non autorisée) sous ce seuil
 
 # Corrélation (jalon 3)

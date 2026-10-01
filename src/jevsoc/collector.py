@@ -39,6 +39,8 @@ class Alert:
     dst_ip: str | None = None
     users: list[str] = field(default_factory=list)
     mitre: list[str] = field(default_factory=list)
+    processes: list[str] = field(default_factory=list)  # identifiants de processus (Sysmon ProcessGuid)
+    files: list[str] = field(default_factory=list)  # chemins de fichiers / binaires impliqués
 
     def entities(self) -> list[str]:
         """Entités typées qui peuvent relier deux alertes (ex. 'ip:10.0.0.5')."""
@@ -48,6 +50,10 @@ class Alert:
         for ip in {self.src_ip, self.dst_ip} - {None}:
             out.append(f"ip:{ip}")
         out.extend(f"user:{u}" for u in self.users)
+        # Windows / Sysmon : le même processus (ou son parent) relie les alertes d'un arbre de
+        # processus ; un même fichier relie le dépôt d'un exécutable à son exécution.
+        out.extend(f"proc:{p}" for p in self.processes)
+        out.extend(f"file:{f}" for f in self.files)
         # La règle elle-même relie une rafale d'alertes identiques (scan, brute force). Utile
         # quand un proxy masque l'IP de l'attaquant. Les règles de fond (présentes en
         # permanence, ex. Dovecot) sont neutralisées comme hubs par le correlator.
@@ -60,6 +66,11 @@ def _strip_port(value: str | None) -> str | None:
     if not value:
         return None
     return value.rsplit(":", 1)[0] if value.count(":") == 1 else value
+
+
+def _win_path(value: str) -> str:
+    """Wazuh double les antislashs des champs Windows ('C:\\\\Windows') : on revient à 'C:\\Windows'."""
+    return value.replace("\\\\", "\\").replace('\\"', '"')
 
 
 def clean_text(text: str, limit: int = 160) -> str:
@@ -81,12 +92,34 @@ def normalize_wazuh(raw: dict) -> Alert:
         if isinstance(data.get(key), str):
             # Wazuh décode parfois "www-data:jhall" en "data:jhall" : on garde la partie utile.
             users.append(data[key].split(":")[-1])
-    win_user = ((data.get("win") or {}).get("eventdata") or {}).get("user")
-    if win_user:
-        users.append(win_user)
+    win = ((data.get("win") or {}).get("eventdata")) or {}
+    for key in ("user", "targetUserName", "subjectUserName"):
+        if win.get(key):
+            users.append(_win_path(win[key]).split("\\")[-1].lower())  # "DMEVALS\pbeesly" -> "pbeesly"
+    users = [u for u in users if u and not u.endswith("$")]  # comptes machine : bruit
+    processes = sorted(
+        {
+            win[key].strip("{}").lower()
+            for key in (
+                "processGuid",
+                "parentProcessGuid",
+                "sourceProcessGUID",
+                "sourceProcessGuid",
+                "targetProcessGUID",
+                "targetProcessGuid",
+            )
+            if win.get(key)
+        }
+    )
+    files = sorted(
+        {_win_path(win[key]).lower() for key in ("targetFilename", "image", "imagePath") if win.get(key)}
+    )
 
     suricata = (data.get("alert") or {}).get("signature")
-    detail = suricata or raw.get("full_log", "")
+    win_detail = next(
+        (_win_path(win[k]) for k in ("commandLine", "targetFilename", "imagePath", "image") if win.get(k)), ""
+    )
+    detail = suricata or win_detail or raw.get("full_log", "")
     return Alert(
         id=str(raw.get("id", "")),
         ts=datetime.fromisoformat(raw["@timestamp"].replace("Z", "+00:00")).timestamp(),
@@ -95,10 +128,12 @@ def normalize_wazuh(raw: dict) -> Alert:
         description=rule.get("description", ""),
         detail=clean_text(detail),
         host=host,
-        src_ip=_strip_port(data.get("srcip") or data.get("src_ip")),
-        dst_ip=_strip_port(data.get("dstip") or data.get("dest_ip")),
+        src_ip=_strip_port(data.get("srcip") or data.get("src_ip") or win.get("sourceIp")),
+        dst_ip=_strip_port(data.get("dstip") or data.get("dest_ip") or win.get("destinationIp")),
         users=sorted(set(users)),
         mitre=list((rule.get("mitre") or {}).get("id", [])),
+        processes=processes,
+        files=files,
     )
 
 

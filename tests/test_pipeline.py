@@ -77,8 +77,10 @@ def test_denylist_and_window_split():
 
 def test_is_judgeable():
     assert not is_judgeable([alert(1, 0, host="a")])
+    assert not is_judgeable([alert(1, 0, host="a", users=["bob"])])  # 1 hôte + 1 utilisateur : pas assez
     assert is_judgeable([alert(i, i, host="a") for i in range(3)])
-    assert is_judgeable([alert(1, 0, host="a"), alert(2, 1, users=["bob"])])
+    assert is_judgeable([alert(1, 0, host="a"), alert(2, 1, host="b")])  # 2 hôtes
+    assert not is_judgeable([alert(1, 0, host="a"), alert(2, 1, users=["bob"])])
 
 
 def test_serializer_merges_bursts_and_keeps_rare_signals():

@@ -19,3 +19,9 @@ santos: test
 shaw: test
 wardbeck: test
 wilson: test
+
+# Émulation APT29 (Windows, OTRF) rejouée dans Wazuh (data/apt29/) : TEST UNIQUEMENT.
+# Aucun seuil ni aucune calibration n'est réglé dessus : c'est un test hors distribution
+# (Windows/Sysmon au lieu de Linux/web, autre attaquant, autres outils).
+apt29_day1: test
+apt29_day2: test

@@ -69,8 +69,13 @@ def load_clusters(data_dir: Path, split: str | None) -> list[dict]:
 
 
 def is_multistage(row: dict) -> bool:
-    """Chaîne multi-étapes = attaque qui va au-delà de la simple reconnaissance."""
-    return row["label"] == "attack" and row["true_stage"] != RECON
+    """Chaîne multi-étapes : champ `multistage` du jeu s'il existe (APT29 : au moins 2 étapes
+    distinctes), sinon attaque qui va au-delà de la simple reconnaissance (AIT)."""
+    if row["label"] != "attack":
+        return False
+    if row.get("multistage") is not None:
+        return row["multistage"]
+    return row["true_stage"] != RECON
 
 
 def projected_false_positives(rows: list[dict], predictions: list[int], summary: dict | None) -> float | None:
@@ -173,6 +178,7 @@ def evaluate(
                 "scenario": c["scenario"],
                 "label": c["label"],
                 "true_stage": c.get("kill_chain_stage"),
+                "multistage": c.get("multistage"),
                 "p_raw": decision.noul(ATTACK_QUESTION),
                 "p_cal": derived.p_attack if derived.calibrated else None,
                 "priority": decision.score("priority") if "priority" in decision.answers else None,
@@ -216,7 +222,11 @@ def evaluate(
             reliability["jev calibré"] = reliability_table(y_ms, [r["p_cal"] for r in ms_rows])
 
     def kind(r):
-        return "multi-étapes" if is_multistage(r) else "scan" if r["label"] == "attack" else "bénin"
+        if is_multistage(r):
+            return "multi-étapes"
+        if r["label"] == "attack":
+            return "scan" if r["true_stage"] == RECON else "attaque 1 étape"
+        return "bénin"
 
     actions = Counter((kind(r), r["action"]) for r in rows)
     latencies = [r["latency_ms"] for r in rows]

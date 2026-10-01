@@ -265,8 +265,17 @@ jev-soc/
   d'alertes, sinon un attaquant bruyant devient un hub) ; la règle Wazuh est aussi une entité
   (rafales derrière un proxy). Sérialiseur `state_version` 2 : rafales fusionnées, lignes rares
   prioritaires.
-- Résultat clé (README) : Jev trouve 7/8 chaînes multi-étapes à 0 faux positif/jour, contre
-  4/8 et 58 FP/jour pour `max_level >= 7` ; il ne signale pas les scans seuls (complémentaire
-  d'une règle de volume).
-- Prochaines tâches : correlator incrémental + démo live, `LayaBackend`, recalibration des
-  probabilités (température) sur la validation, plus de chaînes multi-étapes (lab Windows).
+- Windows : `scripts/wazuh_replay.py` rejoue des journaux Windows/Sysmon (format NXLog d'OTRF)
+  dans un vrai wazuh-manager de LAB, en injectant {"Message", "Event": XML} dans
+  queue/sockets/queue (file "f", comme un agent). XML avec attributs entre APOSTROPHES (sinon
+  l'analyseur XML de Wazuh échoue). wazuh-logtest ne gère pas l'eventchannel.
+- Entités Windows : ProcessGuid / ParentProcessGuid (arbres de processus), fichiers (dépôt puis
+  exécution), comptes Windows. Hubs repérés par tranches de 3 min pour les enregistrements courts.
+- Calibration : `eval/calibrate.py` (Platt, cible = chaîne multi-étapes) sur la validation AIT,
+  écrit `config/calibration.yaml` ; la politique l'applique avant les seuils. Seuils actuels :
+  sophisticated_low 0,14 (échelle calibrée), volume_min_alerts 65, règle de priorité désactivée.
+- Résultats (README) : AIT test 5/5 chaînes à 0 FP/jour ; APT29 (Windows, jamais réglé dessus)
+  11/11 chaînes, F1 0,79 vs 0,42 pour max_level >= 7, ECE 0,30 -> 0,05 ; la règle de volume aide
+  sur Linux (scans) mais nuit sur Windows (rafales de fausses alertes Wazuh).
+- Prochaines tâches : correlator incrémental + démo live (rejoueur + page web), `LayaBackend`,
+  règle de volume moins naïve (ex. rafales d'une même règle bruyante connue), plus de chaînes.

@@ -15,9 +15,9 @@
     "attack_alerts": 415435,
     "attack_alerts_in_judged_clusters": 415435,
     "clusters": 140593,
-    "judgeable_clusters": 1373,
+    "judgeable_clusters": 1369,
     "attack_clusters": 10,
-    "benign_clusters": 1363,
+    "benign_clusters": 1359,
     "days": 5.0,
     "missed_phases": []
   },
@@ -26,9 +26,9 @@
     "attack_alerts": 7709,
     "attack_alerts_in_judged_clusters": 7705,
     "clusters": 20353,
-    "judgeable_clusters": 891,
+    "judgeable_clusters": 887,
     "attack_clusters": 2,
-    "benign_clusters": 889,
+    "benign_clusters": 885,
     "days": 4.0,
     "missed_phases": []
   },
@@ -37,9 +37,9 @@
     "attack_alerts": 7753,
     "attack_alerts_in_judged_clusters": 7748,
     "clusters": 92625,
-    "judgeable_clusters": 2025,
+    "judgeable_clusters": 2008,
     "attack_clusters": 5,
-    "benign_clusters": 2020,
+    "benign_clusters": 2003,
     "days": 3.9,
     "missed_phases": []
   },
@@ -48,9 +48,9 @@
     "attack_alerts": 397,
     "attack_alerts_in_judged_clusters": 391,
     "clusters": 31281,
-    "judgeable_clusters": 1767,
+    "judgeable_clusters": 1764,
     "attack_clusters": 4,
-    "benign_clusters": 1763,
+    "benign_clusters": 1760,
     "days": 6.0,
     "missed_phases": [
       "service_scans"
@@ -61,9 +61,9 @@
     "attack_alerts": 403,
     "attack_alerts_in_judged_clusters": 397,
     "clusters": 45844,
-    "judgeable_clusters": 2591,
+    "judgeable_clusters": 2584,
     "attack_clusters": 4,
-    "benign_clusters": 2587,
+    "benign_clusters": 2580,
     "days": 5.0,
     "missed_phases": []
   },
@@ -72,9 +72,9 @@
     "attack_alerts": 419358,
     "attack_alerts_in_judged_clusters": 419357,
     "clusters": 142952,
-    "judgeable_clusters": 2464,
+    "judgeable_clusters": 2450,
     "attack_clusters": 11,
-    "benign_clusters": 2453,
+    "benign_clusters": 2439,
     "days": 5.0,
     "missed_phases": []
   },
@@ -83,9 +83,9 @@
     "attack_alerts": 31878,
     "attack_alerts_in_judged_clusters": 31877,
     "clusters": 156176,
-    "judgeable_clusters": 2562,
+    "judgeable_clusters": 2552,
     "attack_clusters": 9,
-    "benign_clusters": 2553,
+    "benign_clusters": 2543,
     "days": 6.0,
     "missed_phases": []
   }

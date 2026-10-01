@@ -44,8 +44,10 @@ def test_monitor_when_benign_and_low_priority():
 
 def test_investigate_in_grey_zone():
     assert policy(decision(0.5), STATE, THRESHOLDS).recommended_action == "investigate"
-    # P basse mais priorité au-dessus du seuil de monitor -> investigate aussi
-    assert policy(decision(0.1, priority=3.5), STATE, THRESHOLDS).recommended_action == "investigate"
+    # La règle de priorité existe toujours (seuil configurable) même si elle est désactivée par défaut
+    strict = {**THRESHOLDS, "priority_monitor_max": 3.0}
+    assert policy(decision(0.1, priority=3.5), STATE, strict).recommended_action == "investigate"
+    assert policy(decision(0.1, priority=3.5), STATE, THRESHOLDS).recommended_action == "monitor"
 
 
 def test_contain_and_escalate_are_not_exclusive():

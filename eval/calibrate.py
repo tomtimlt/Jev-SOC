@@ -77,18 +77,20 @@ def main(argv: list[str] | None = None) -> dict:
             f"| {name} | calibrées | {brier_score(y, cal):.3f} | {expected_calibration_error(y, cal):.3f} |"
         )
 
-    # Seuil d'investigation : on veut voir TOUTES les chaînes de validation. On prend le plus grand
-    # seuil (pas de 0,05) qui les garde toutes, et on affiche le coût en faux positifs de validation.
+    # Seuil d'investigation : milieu de l'écart entre le bénin le plus suspect et la chaîne la
+    # moins suspecte de la validation (marge maximale de part et d'autre), arrondi à 0,01.
     ms_cal = [calibrator(r["p"]) for r in val if is_multistage(r)]
-    investigate_min = max(0.05, int(min(ms_cal) / 0.05) * 0.05)
-    benign_flagged = sum(1 for r in val if r["label"] == "benign" and calibrator(r["p"]) >= investigate_min)
-    n_benign = sum(1 for r in val if r["label"] == "benign")
+    benign_cal = [calibrator(r["p"]) for r in val if r["label"] == "benign"]
+    gap_low, gap_high = max(benign_cal), min(ms_cal)
+    investigate_min = round((gap_low + gap_high) / 2, 2) if gap_low < gap_high else round(gap_high, 2)
+    benign_flagged = sum(1 for p in benign_cal if p >= investigate_min)
     print(
-        f"\nSeuil d'investigation : P calibrée des chaînes de validation = {sorted(round(p, 2) for p in ms_cal)}"
+        f"\nSeuil d'investigation : bénin de validation le plus haut = {gap_low:.2f}, "
+        f"chaînes de validation = {sorted(round(p, 2) for p in ms_cal)}"
     )
     print(
         f"  -> sophisticated_low recommandé = {investigate_min:.2f} "
-        f"({benign_flagged}/{n_benign} bénins de validation au-dessus)"
+        f"({benign_flagged}/{len(benign_cal)} bénins de validation au-dessus)"
     )
 
     benign_max = max(r["alert_count"] for r in val if r["label"] == "benign")

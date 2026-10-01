@@ -34,10 +34,13 @@ class UnionFind:
         self.parent[self.find(a)] = self.find(b)
 
 
-def hub_entities(alerts: list[Alert], hub_ratio: float, denylist: set[str]) -> set[str]:
+def hub_entities(
+    alerts: list[Alert], hub_ratio: float, denylist: set[str], bucket_minutes: float = 60
+) -> set[str]:
     """Entités qui ne doivent créer aucun lien : denylist + entités présentes en permanence.
 
-    "Permanente" = vue dans plus de `hub_ratio` des heures couvertes par les alertes. On ne
+    "Permanente" = vue dans plus de `hub_ratio` des tranches de temps (1 h par défaut ; plus
+    court pour un enregistrement de quelques dizaines de minutes) couvertes par les alertes. On ne
     compte PAS le nombre d'alertes : un attaquant qui scanne génère énormément d'alertes en
     peu de temps, et le prendre pour un hub couperait justement la chaîne qu'on cherche.
     Un serveur mail ou un DNS, eux, apparaissent heure après heure.
@@ -45,8 +48,8 @@ def hub_entities(alerts: list[Alert], hub_ratio: float, denylist: set[str]) -> s
     hours_by_entity: dict[str, set[int]] = {}
     for alert in alerts:
         for entity in alert.entities():
-            hours_by_entity.setdefault(entity, set()).add(int(alert.ts // 3600))
-    total_hours = len({int(a.ts // 3600) for a in alerts}) or 1
+            hours_by_entity.setdefault(entity, set()).add(int(alert.ts // (bucket_minutes * 60)))
+    total_hours = len({int(a.ts // (bucket_minutes * 60)) for a in alerts}) or 1
     permanent = {e for e, hours in hours_by_entity.items() if len(hours) > hub_ratio * total_hours}
     denied = {e for e in hours_by_entity if e.split(":", 1)[1].lower() in denylist}
     return permanent | denied
@@ -72,10 +75,11 @@ def correlate(
     hub_ratio: float = 0.2,
     denylist: set[str] | None = None,
     max_cluster_size: int = 5000,
+    hub_bucket_minutes: float = 60,
 ) -> list[list[Alert]]:
     """Renvoie les clusters, chacun trié par temps, eux-mêmes triés par début."""
     alerts = sorted(alerts, key=lambda a: a.ts)
-    hubs = hub_entities(alerts, hub_ratio, {d.lower() for d in denylist or set()})
+    hubs = hub_entities(alerts, hub_ratio, {d.lower() for d in denylist or set()}, hub_bucket_minutes)
     uf = UnionFind(len(alerts))
     last_seen: dict[str, int] = {}  # entité -> index de la dernière alerte qui la portait
     max_gap_s = max_gap_minutes * 60
@@ -98,6 +102,14 @@ def correlate(
 
 
 def is_judgeable(cluster: list[Alert], min_alerts: int = 3, min_entities: int = 2) -> bool:
-    """Un cluster ne vaut jugement que s'il a assez d'alertes ou assez d'hôtes/utilisateurs."""
-    entities = {e for a in cluster for e in a.entities() if e.startswith(("host:", "user:"))}
-    return len(cluster) >= min_alerts or len(entities) >= min_entities
+    """Un cluster ne vaut jugement que s'il a assez d'alertes, ou s'il s'étend sur plusieurs
+    hôtes ou plusieurs utilisateurs (au moins 2 alertes dans ce cas).
+
+    On compte les hôtes et les utilisateurs SÉPARÉMENT : une alerte isolée qui porte un hôte et
+    un utilisateur ne décrit pas une activité étendue.
+    """
+    if len(cluster) >= min_alerts:
+        return True
+    hosts = {a.host for a in cluster if a.host}
+    users = {u for a in cluster for u in a.users}
+    return len(cluster) >= 2 and (len(hosts) >= min_entities or len(users) >= min_entities)

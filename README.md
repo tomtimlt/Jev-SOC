@@ -13,9 +13,9 @@ Il écrit seulement des décisions à côté du workflow existant.
 | Jalon | État |
 |---|---|
 | 1. Squelette, `MockBackend`, harnais `eval.py` | fait (+ `JevBackend`) |
-| 2. Jeu de clusters labellisés | fait autrement : 293 clusters issus de **vraies alertes Wazuh** (AIT-ADS) + 12 scénarios faits main |
-| 3. Sérialiseur + correlator | version hors ligne faite ; version incrémentale (démo live) à faire |
-| Politique de décision (`policy.py`) | faite, seuils calibrés sur la validation AIT |
+| 2. Jeu de clusters labellisés | fait sur **vraies alertes Wazuh** : AIT-ADS (Linux/web) + émulation APT29 de MITRE (Windows/Sysmon) rejouée dans un vrai Wazuh |
+| 3. Sérialiseur + correlator | version hors ligne faite (entités Linux et Windows/Sysmon) ; version incrémentale (démo live) à faire |
+| Politique de décision + calibration | faites, réglées sur la validation AIT uniquement |
 | 4. `LayaBackend` zero-shot | à faire |
 | 5 à 9 | à faire |
 
@@ -42,6 +42,16 @@ python scripts/make_variants.py
 # Construire les clusters labellisés à partir de vraies alertes Wazuh (voir data/README.md)
 python scripts/build_ait_dataset.py
 
+# Attaques Windows : rejouer des journaux Windows/Sysmon dans un vrai Wazuh (voir data/README.md)
+sudo python scripts/wazuh_replay.py data/raw/apt29/<jour>.json data/raw/apt29/alerts/<jour>_wazuh.ndjson
+python scripts/build_apt29_dataset.py
+
+# Calibration + seuils, ajustés sur la VALIDATION à partir de décisions enregistrées (sans API)
+python eval/calibrate.py --results eval/results/jev-ait.json
+
+# Rejouer une évaluation sans rappeler l'API
+python eval/eval.py --data data/ait --split test --replay eval/results/jev-ait.json
+
 # Courbe de soupçon : décision re-prise à chaque nouvelle alerte d'un scénario
 python scripts/prefix_curve.py --backend jev
 
@@ -58,56 +68,74 @@ Le choix du backend, les seuils et les paramètres de corrélation sont dans
 ## Tests
 
 ```bash
-pytest          # 36 tests, aucun appel réseau
+pytest          # 46 tests, aucun appel réseau
 ruff check . && ruff format --check .
 ```
 
 ## Comment se lit l'évaluation
 
-- **P(attaque)** = réponse `is_sophisticated_attack` du modèle, seuil 0,5.
-- **Baselines à battre :** `max_level>=7` (au moins une alerte de niveau 7) et
-  `sum_levels` (somme des niveaux). Elles utilisent les vrais niveaux de règle du cluster,
-  même dans la variante `no_level` où on les cache au modèle.
-- **AUC :** probabilité qu'une attaque ait un score plus haut qu'un bénin. Elle ne dépend
-  d'aucun seuil, donc compare honnêtement modèle et baselines.
-- **Brier / ECE :** qualité des probabilités (calibration). Seulement pour le modèle.
-- Moins de 20 clusters : le script le signale, les chiffres sont indicatifs.
+- Deux questions : **toutes les attaques** contre les bénins, et **chaînes multi-étapes** contre
+  les bénins (ce que demande la question `is_sophisticated_attack`).
+- **jev calibré** : P(attaque) recalibrée (Platt, 2 paramètres, `config/calibration.yaml`) puis
+  seuil d'investigation 0,14. **système complet** : action de la politique ≠ `monitor`.
+- **Baselines** : `max_level>=7`, somme des niveaux, volume d'alertes. Calculées sur les vrais
+  niveaux de règle du cluster.
+- **AUC** : sans seuil, compare honnêtement tout le monde. **Brier / ECE** : qualité des
+  probabilités. **FP/jour** : faux positifs projetés sur tous les clusters bénins réels.
+- Tout réglage (calibration, seuils) est fait sur la **validation AIT** (fox, harrison, wheeler).
+  Les chiffres ci-dessous sont sur le **test** : 5 autres scénarios AIT, et APT29 en entier.
 
-## Résultats mesurés
+## Résultats mesurés (Jev `jev-1.13.0`, sur le test uniquement)
 
-### Sur vraies alertes Wazuh (AIT-ADS, Jev `jev-1.13.0`)
+### Linux / web : AIT-ADS, 5 scénarios de test (174 clusters, 24 attaques dont 5 chaînes)
 
-293 clusters : 53 attaques (8 chaînes multi-étapes avec reverse shell / escalade de
-privilèges, 45 scans seuls) et 240 bénins tirés au hasard parmi 14 940 réels.
+| Méthode | Chaînes multi-étapes : rappel | Toutes attaques : F1 | AUC | Faux positifs / jour |
+|---|---|---|---|---|
+| Jev calibré (P ≥ 0,14) | **5 / 5** | 0,50 | 0,78 | **0** |
+| Système complet (Jev + volume) | 5 / 5 | **0,76** | **0,88** | 3 |
+| `volume >= 65` | 2 / 5 | 0,67 | 0,73 | 3 |
+| `max_level >= 7` | 3 / 5 | 0,33 | 0,50 | 70 |
 
-**Le cas qui justifie le projet : les chaînes multi-étapes.**
+Jev attrape toutes les chaînes (y compris les escalades de privilèges discrètes de niveau 4)
+sans fausse alerte, mais ne signale pas les scans seuls ; la règle de volume les couvre.
 
-| Méthode | Chaînes multi-étapes trouvées | Scans seuls trouvés | Faux positifs / jour estimés |
+### Windows : émulation APT29 de MITRE rejouée dans Wazuh (81 clusters, 24 attaques dont 11 chaînes)
+
+Jeu **jamais utilisé pour régler quoi que ce soit** : autre OS, autre attaquant, autres outils.
+
+| Méthode | Chaînes multi-étapes : rappel | Toutes attaques : précision / rappel / F1 | AUC |
 |---|---|---|---|
-| Jev, P ≥ 0,5 | **7 / 8** | 6 / 45 | **0** |
-| `max_level >= 7` | 4 / 8 | 18 / 45 | 58 |
-| `alert_count >= 100` | 3 / 8 | 30 / 45 | 0 |
+| Jev calibré (P ≥ 0,14) | **11 / 11** | 0,68 / 0,96 / **0,79** | **0,94** |
+| Système complet (Jev + volume) | 11 / 11 | 0,50 / 0,96 / 0,66 | 0,77 |
+| `max_level >= 7` | 10 / 11 | 0,29 / 0,79 / 0,42 | 0,70 |
+| `volume >= 65` | 4 / 11 | 0,25 / 0,17 / 0,20 | 0,45 |
 
-- Toutes les chaînes multi-étapes ont une P(attaque) (0,48 à 0,82) plus haute que tous les
-  bénins échantillonnés (max 0,33).
-- Les 3 chaînes **discrètes** (niveau max 4 : `su` vers un compte, `sudo` root depuis le dossier
-  d'upload WordPress) sont toutes vues par Jev et toutes ratées par `max_level >= 7`.
-- Jev ne signale pas les **scans seuls** : la question posée (« intrusion multi-étapes
-  coordonnée ? ») n'y répond pas oui, à raison. Une règle bête sur le volume d'alertes les
-  attrape mieux : les deux sont **complémentaires**.
+- La **calibration apprise sur Linux tient sur Windows** : ECE 0,30 brut → 0,05 calibré.
+- La **règle de volume ne se transporte pas** : sur Windows, les rafales viennent de fausses
+  alertes de Wazuh (« Explorer accessed by RuntimeBroker », des centaines par minute), pas
+  de scans. Elle coûte de la précision au système complet.
+- Faux positifs de Jev sur Windows : surtout des accès de `lsass` / `svchost` à Explorer et des
+  scripts PowerShell de l'agent Azure ; aucun réglage n'a été fait pour les éviter.
 
-**Comparaison équitable sur toutes les attaques** (seuil de chaque méthode choisi sur les
-scénarios de validation, mesuré sur les 5 scénarios de test) : Jev F1 0,68 et AUC 0,78,
-contre F1 0,68–0,70 et AUC 0,73 pour les baselines de volume. Sur cette tâche mixte, Jev ne
-fait pas mieux qu'une règle de volume : son apport est sur les chaînes, pas sur les scans.
+### Recalibration (validation AIT, 3 chaînes + 116 non-chaînes)
 
-**Politique** (`priority_monitor_max` recalibré à 3,0 sur la validation) : 239 bénins sur 240
-en `monitor`, les 5 chaînes multi-étapes les plus nettes en `contain`.
+`P_calibrée = sigmoïde(2,21 × logit(P_brute) − 1,87)`. Une P brute de 0,5 correspond en
+réalité à ~13 % de chances d'être une chaîne multi-étapes ; 0,8 à ~77 %. ECE sur le test
+AIT : 0,19 → 0,01. Le seuil d'investigation (0,14) est au milieu de l'écart, en validation,
+entre le bénin le plus suspect (0,02) et la chaîne la moins suspecte (0,26).
 
-Limites honnêtes : 8 chaînes multi-étapes seulement, issues du même plan d'attaque rejoué
-dans 8 environnements ; labels par fenêtres de temps ; environnement Linux/web. Les
-probabilités de Jev sont mal calibrées (une P de 0,5 correspond en réalité à une attaque
-quasi certaine) : il faut un seuil ou une recalibration choisis sur la validation.
+### Ce qui a été corrigé en cours de route (transparence)
+
+- **Règle de priorité désactivée** (`priority_monitor_max` 3,0 → 4,0) **après** avoir vu le test
+  APT29 : la priorité du modèle n'est pas calibrée (bénins Windows à 3,2–3,7) et envoyait 50
+  bénins sur 57 en `investigate`. Sur la validation AIT, elle n'apportait aucune chaîne.
+- **Labels APT29 corrigés après examen des désaccords** avec Jev : un PowerShell caché lancé par
+  WMI (attaque ratée par la liste d'indicateurs) et des commandes de l'agent Azure (faussement
+  labellisées attaque). Les règles corrigées sont générales, mais n'examiner que les désaccords
+  favorise le modèle : ces chiffres APT29 sont donc un peu optimistes.
+- Limites : peu de chaînes (5 + 11), labels par indicateurs ou fenêtres de temps, une seule
+  famille d'attaque par environnement, probabilités calibrées à la prévalence de l'échantillon
+  (bien plus élevée que dans un vrai SOC).
 
 ### Sur les scénarios faits main (ablation, 12 clusters)
 
@@ -124,17 +152,22 @@ Jev sépare l'attaque, le jumeau bénin SCCM et l'attaque déguisée (AUC 1,0) a
 - **Le sérialiseur peut cacher l'essentiel.** Garder les 30 lignes les plus graves faisait
   disparaître les `sudo` de niveau 3 derrière des milliers d'erreurs 400. Version 2 du state :
   fusion des rafales en une ligne « ×7 105 », puis priorité aux lignes rares.
+- **wazuh-logtest ne sait pas traiter les événements Windows.** Pour obtenir de vraies alertes
+  Windows sans VM, `scripts/wazuh_replay.py` reconstruit le XML Windows (attributs entre
+  apostrophes, sinon l'analyseur de Wazuh échoue) et l'injecte dans la file d'analyse comme un
+  agent. Les identifiants de processus Sysmon servent d'entités : ils relient un arbre de processus.
 
 ## Structure
 
 ```
 config/        config.yaml, questions.v2.json, entity_denylist.yaml
-src/jevsoc/    models.py (Decision, Derived), metrics.py, config.py, policy.py,
+src/jevsoc/    models.py (Decision, Derived), metrics.py, config.py, policy.py, calibration.py,
                collector.py, correlator.py, serializer.py, backends/ (base, mock, jev)
                + modules en attente : store, reports, api, backends/laya
-scripts/       make_variants.py (ablation), build_ait_dataset.py (vraies alertes), prefix_curve.py
-data/          ablation/, ait/, splits.yaml, README.md (sources, licence, labellisation)
-eval/          eval.py (harnais), results/ (sorties locales, ignorées par git)
+scripts/       make_variants.py, build_ait_dataset.py, build_apt29_dataset.py, wazuh_replay.py,
+               prefix_curve.py
+data/          ablation/, ait/, apt29/, splits.yaml, README.md (sources, licences, labellisation)
+eval/          eval.py (harnais), calibrate.py (calibration + seuils sur validation), results/ (local)
 tests/         tests pytest + une réponse Jev réelle enregistrée (fixtures/)
 dashboards/    exports .ndjson (jalon 7)
 docker/        lab Wazuh (optionnel)
