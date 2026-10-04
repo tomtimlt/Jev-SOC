@@ -23,6 +23,7 @@ from collections.abc import Callable
 from jevsoc.collector import Alert
 from jevsoc.correlator import IncrementalCorrelator, LiveCluster, is_judgeable
 from jevsoc.models import Decision
+from jevsoc.naming import name_cluster, technique_label
 from jevsoc.policy import policy
 from jevsoc.serializer import serialize
 
@@ -126,6 +127,15 @@ class LiveEngine:
             "flags": derived.flags,
             "justification": derived.justification,
             "latency_ms": round(decision.latency_ms),
+            # Le modèle hésite : zone grise entre les deux seuils, ou réponses contradictoires sur un
+            # cluster qui n'est pas classé comme bruit.
+            "doubt": bool(
+                self.thresholds["sophisticated_low"]
+                <= derived.p_attack
+                < self.thresholds["sophisticated_high"]
+                or ("inconsistent" in derived.flags and derived.recommended_action != "monitor")
+            ),
+            **name_cluster(cluster.alerts, derived.recommended_action),
         }
         if self.truth_ids is not None:
             event["truth"] = any(a.id in self.truth_ids for a in cluster.alerts)
@@ -153,6 +163,8 @@ class LiveEngine:
                 "rule": alert.rule_id,
                 "desc": alert.description[:120],
                 "cluster": cluster.id,
+                "users": alert.users[:3],
+                "technique": next((technique_label(m) for m in alert.mitre if technique_label(m)), None),
             }
         )
         if absorbed:

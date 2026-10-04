@@ -69,9 +69,23 @@ Le choix du backend, les seuils et les paramètres de corrélation sont dans
 ## Démo live
 
 Rejoue de **vraies alertes Wazuh** (émulation APT29, jour 1 : 2 704 alertes en 31 min) dans le
-correlator incrémental ; le modèle re-juge chaque cluster quand il évolue, et la page montre la
-courbe de soupçon, l'entonnoir alertes → clusters → à traiter, le flux d'alertes et le journal des
-décisions versionnées.
+correlator incrémental ; le modèle re-juge chaque activité quand elle évolue. La page a deux
+onglets :
+
+- **Vue d'ensemble** (pour comprendre le projet d'un coup d'œil) : horloge numérique de l'attaque
+  (heure UTC réelle du rejeu + temps écoulé), bandeau de situation (« Attaque en cours », nom de
+  l'attaque, action à faire), entonnoir alertes → activités corrélées → jugées par Jev → à traiter,
+  **graphe de propagation** (machines, activités reliées aux machines qu'elles touchent, flèches
+  machine → machine avec l'heure et la technique, « ? » là où Jev hésite), cartes des attaques
+  nommées et fil des moments clés.
+- **Vue analyste SOC** : courbes P(attaque) par cluster avec les seuils, volume par niveau, cartes
+  détaillées (probabilités brute/calibrée, chaîne MITRE, justification déterministe), flux
+  d'alertes et journal des décisions versionnées.
+
+Les noms (« Intrusion SCRANTON → NASHUA », « Activité suspecte sur NASHUA ») sont construits par
+règles fixes dans `src/jevsoc/naming.py` (machines dans l'ordre, techniques MITRE des règles Wazuh,
+action recommandée) : aucun texte généré. « Jev hésite » = P calibrée entre le seuil
+d'investigation et celui de confinement.
 
 ```bash
 # Le plus sûr pour une soutenance : page autonome, aucun réseau ni serveur (double-clic)
@@ -90,16 +104,18 @@ python scripts/demo.py record --backend jev --truth apt29 --alerts ... --history
 python scripts/demo.py build --recording demo/recordings/apt29_day1.json --out demo/apt29_day1_standalone.html
 ```
 
-Ce que montre l'enregistrement : la chaîne principale (`#0004`, SCRANTON puis NASHUA) passe à
-77 % dès la 1re minute puis à 98 % (contenir) ; le mouvement latéral vers NASHUA (`#0025`) monte
-de 33 % à 93 % en deux minutes avant de fusionner avec la chaîne ; 30 clusters de bruit restent en
-surveillance. Le bouton « Vérité terrain » affiche, pour chaque cluster, s'il contient des actions
-de l'attaquant (indicateurs du plan d'émulation).
+Ce que montre l'enregistrement : l'attaque **A « Intrusion SCRANTON → NASHUA »** est repérée à
+T+01:18 (77 %) puis monte à 99 % (contenir) ; **D « Intrusion NASHUA »** (partages admin, WinRM,
+copie d'outils) passe à « contenir » à T+15:06 puis fusionne avec A à T+15:46 : le correlator a
+reconstitué le mouvement latéral. En fin de rejeu : 3 intrusions (2 réelles, 1 fausse alerte à
+72 %), 9 activités où Jev hésite (6 réelles, 3 bruit), 28 activités jugées bruit de fond, toutes sans
+indicateur d'attaque.
+Le bouton « Vérité terrain » affiche ces verdicts (indicateurs du plan d'émulation).
 
 ## Tests
 
 ```bash
-pytest          # 51 tests, aucun appel réseau
+pytest          # 55 tests, aucun appel réseau
 ruff check . && ruff format --check .
 ```
 

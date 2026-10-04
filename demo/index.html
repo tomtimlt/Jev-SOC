@@ -2,23 +2,24 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Jev-SOC Live</title>
 <style>
-/* Jetons de couleur : clair par défaut, sombre selon le système ou le bouton de thème. */
+/* Mise en page « salle de crise » : en haut l'heure et la situation, au centre le graphe de
+   propagation, en dessous les attaques nommées. Les détails SOC sont dans un second onglet. */
 :root {
   color-scheme: light;
-  --page: #f9f9f7; --surface: #fcfcfb; --surface-2: #f3f2ee;
+  --page: #f4f4f1; --surface: #fcfcfb; --surface-2: #efeee9;
   --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
   --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
   --accent: #2a78d6;
   --sev-low: #86b6ef; --sev-mid: #2a78d6; --sev-high: #104281;
-  --st-monitor: #898781; --st-investigate: #fab219; --st-escalate: #ec835a; --st-contain: #d03b3b;
-  --st-good: #0ca30c;
-  --track: #ecebe6;
+  --st-monitor: #898781; --st-investigate: #fab219; --st-escalate: #ec835a; --st-contain: #d03b3b; --st-good: #0ca30c;
+  --track: #e4e3dd; --on-status: #0b0b0b;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme="light"])) {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
     --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
     --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
@@ -39,17 +40,17 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
-body {
-  background: var(--page); color: var(--ink);
-  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
-}
-button, select { font: inherit; color: inherit; }
-.wrap { max-width: 1440px; margin: 0 auto; padding: 16px; }
+body { background: var(--page); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+button { font: inherit; color: inherit; }
+.wrap { max-width: 1480px; margin: 0 auto; padding: 16px; }
+h1, h2, h3 { text-wrap: balance; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* En-tête */
-header.top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; }
+header.top { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; justify-content: space-between; }
+.brand { min-width: 0; }
 .brand h1 { font-size: 20px; margin: 0; letter-spacing: -0.01em; }
-.brand p { margin: 2px 0 0; color: var(--ink-2); font-size: 13px; }
+.brand p { margin: 2px 0 0; color: var(--ink-2); font-size: 13px; max-width: 760px; }
 .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
   border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); font-size: 12px; white-space: nowrap; }
@@ -59,119 +60,179 @@ header.top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center
 .btn { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 6px 10px;
   cursor: pointer; min-height: 32px; display: inline-flex; align-items: center; gap: 6px; }
 .btn:hover { background: var(--surface-2); }
-.btn[aria-pressed="true"] { border-color: var(--accent); }
+.btn[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .seg button { border: 0; background: var(--surface); padding: 6px 10px; cursor: pointer; min-height: 32px; }
 .seg button + button { border-left: 1px solid var(--border); }
-.seg button[aria-pressed="true"] { background: var(--surface-2); font-weight: 600; }
-.clock { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 128px; text-align: right; }
+.seg button[aria-pressed="true"] { background: var(--surface-2); font-weight: 650; }
+
+/* Onglets */
+.tabs { display: flex; gap: 4px; margin: 14px 0 0; border-bottom: 1px solid var(--grid); }
+.tab { border: 0; background: none; padding: 8px 14px; cursor: pointer; color: var(--ink-2); border-bottom: 2px solid transparent; margin-bottom: -1px; font-weight: 600; }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
 
 /* Barre de progression cliquable */
-.progress { position: relative; height: 22px; margin: 14px 0 4px; cursor: pointer; }
+.progress { position: relative; height: 22px; cursor: pointer; margin-top: 10px; }
 .progress .rail { position: absolute; left: 0; right: 0; top: 9px; height: 4px; border-radius: 2px; background: var(--track); }
 .progress .fill { position: absolute; left: 0; top: 9px; height: 4px; border-radius: 2px; background: var(--accent); }
-.progress .mark { position: absolute; top: 4px; width: 2px; height: 14px; border-radius: 1px; background: var(--st-contain); }
-.progress .knob { position: absolute; top: 4px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%;
-  background: var(--accent); box-shadow: 0 0 0 2px var(--surface); }
-.progress-legend { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
+.progress .mark { position: absolute; top: 4px; width: 3px; height: 14px; border-radius: 1px; background: var(--st-contain); }
+.progress .knob { position: absolute; top: 4px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--surface); }
 
-/* Tuiles */
-.kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
-.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; position: relative; }
-.tile .label { color: var(--ink-2); font-size: 12px; display: flex; align-items: center; gap: 6px; }
-.tile .value { font-size: 30px; font-weight: 650; letter-spacing: -0.02em; margin-top: 2px; }
-.tile .sub { color: var(--muted); font-size: 12px; }
-.tile.hero { border-color: color-mix(in srgb, var(--st-contain) 45%, var(--border)); }
-.tile + .tile::before { content: "→"; position: absolute; left: -11px; top: 50%; transform: translate(-50%, -50%);
-  color: var(--muted); font-size: 14px; }
-
-/* Grilles et cartes */
-.grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 12px; align-items: start; }
-.grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin-top: 12px; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; min-width: 0; }
 .card h2 { font-size: 15px; margin: 0; }
-.card .subtitle { color: var(--ink-2); font-size: 12px; margin: 2px 0 10px; }
-.card h3 { font-size: 13px; margin: 14px 0 2px; }
-.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--ink-2); font-size: 12px; margin-bottom: 6px; }
+.card .subtitle { color: var(--ink-2); font-size: 12.5px; margin: 2px 0 10px; }
+.eyebrow { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 650; }
+
+/* Vue d'ensemble : rangée du haut */
+.hero { display: grid; grid-template-columns: 320px minmax(0, 1fr) 290px; gap: 12px; margin-top: 12px; }
+.clock-card { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+.clock { width: 100%; height: auto; max-width: 290px; }
+.elapsed { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.elapsed b { color: var(--ink); font-size: 17px; }
+
+.situation { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+.level { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding: 4px 12px; border-radius: 999px;
+  font-weight: 750; letter-spacing: .06em; font-size: 12px; text-transform: uppercase; border: 1px solid var(--border); background: var(--surface-2); }
+.level i { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+.level.attack { background: color-mix(in srgb, var(--st-contain) 16%, var(--surface)); border-color: var(--st-contain); }
+.level.attack i { background: var(--st-contain); animation: pulse 1.2s infinite; }
+.level.suspect { background: color-mix(in srgb, var(--st-investigate) 18%, var(--surface)); border-color: var(--st-investigate); }
+.level.suspect i { background: var(--st-investigate); }
+.level.watch i { background: var(--st-good); }
+.headline { font-size: 28px; line-height: 1.15; font-weight: 750; letter-spacing: -0.02em; margin: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.headline .letter { width: 32px; height: 32px; font-size: 17px; }
+.situation .why { color: var(--ink-2); font-size: 14px; margin: 0; max-width: 75ch; }
+.situation .todo { font-size: 14px; margin: 0; font-weight: 650; }
+.latest { font-size: 13px; color: var(--ink-2); border-top: 1px solid var(--grid); padding-top: 8px; display: flex; gap: 8px; align-items: baseline; }
+.latest .time { font-family: var(--mono); color: var(--muted); flex: none; }
+
+.pipeline { display: flex; flex-direction: column; }
+.step { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 6px 0; }
+.step + .step { border-top: 1px dashed var(--grid); }
+.step .what { color: var(--ink-2); font-size: 12px; }
+.step .what b { color: var(--ink); display: block; font-size: 13px; }
+.step .n { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; text-align: right; font-variant-numeric: tabular-nums; }
+.step .split { font-size: 12px; color: var(--ink-2); text-align: right; white-space: nowrap; }
+
+/* Graphe de propagation */
+.graph-card { margin-top: 12px; }
+.graph-head { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: flex-end; justify-content: space-between; margin-bottom: 6px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--ink-2); font-size: 12px; }
 .legend .key { display: inline-flex; align-items: center; gap: 6px; }
+.legend .sw { width: 12px; height: 12px; border-radius: 4px; border: 2px solid; background: var(--surface); }
 .legend .line { width: 16px; height: 2px; border-radius: 1px; }
-.legend .rect { width: 10px; height: 10px; border-radius: 2px; }
+.legend .q { width: 15px; height: 15px; border-radius: 50%; background: var(--st-investigate); color: var(--on-status); font-size: 10px; font-weight: 800; display: inline-grid; place-items: center; }
+.chart-wrap { position: relative; }
+.graph-scroll { overflow-x: auto; }
 svg { display: block; overflow: visible; }
 svg text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-.chart-wrap { position: relative; }
+.g-node { cursor: pointer; }
+.g-doubt { animation: ring 1.6s ease-in-out infinite; }
+@keyframes ring { 50% { opacity: .2; } }
+@media (prefers-reduced-motion: reduce) { .g-doubt, .chip.live .dot, .level.attack i { animation: none; } }
 .tooltip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--border);
-  border-radius: 8px; padding: 8px 10px; box-shadow: 0 4px 16px rgba(0,0,0,.12); font-size: 12px; min-width: 190px;
+  border-radius: 8px; padding: 8px 10px; box-shadow: 0 4px 16px rgba(0,0,0,.14); font-size: 12px; max-width: 340px;
   z-index: 5; display: none; }
-.tooltip .t { color: var(--ink-2); margin-bottom: 4px; }
+.tooltip .t { color: var(--ink); font-weight: 650; margin-bottom: 4px; }
+.tooltip .r { color: var(--ink-2); }
 .tooltip .row { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
 .tooltip .row b { min-width: 34px; font-variant-numeric: tabular-nums; }
 .tooltip .row .k { width: 12px; height: 2px; border-radius: 1px; flex: none; }
-.tooltip .row span { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+.tooltip .row span { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
 
-/* Statuts : icône + libellé, jamais la couleur seule */
-.badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px;
-  font-size: 12px; font-weight: 600; border: 1px solid currentColor; }
+/* Attaques et fil */
+.cols { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 12px; margin-top: 12px; align-items: start; }
+.stories { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.story { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--surface); cursor: pointer; display: flex; flex-direction: column; gap: 6px; }
+.story:hover { border-color: var(--axis); }
+.story.attack { border-color: color-mix(in srgb, var(--st-contain) 55%, var(--border)); }
+.story.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.story .top { display: flex; align-items: center; gap: 8px; }
+.story .nm { font-weight: 700; font-size: 14.5px; line-height: 1.25; min-width: 0; }
+.story .p { font-size: 24px; font-weight: 750; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.story .pline { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.meter { height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
+.meter div { height: 100%; border-radius: 3px; }
+.story .path { font-family: var(--mono); font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
+.story .tech { display: flex; flex-wrap: wrap; gap: 4px; }
+.story .tech span { font-size: 11.5px; padding: 1px 7px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); }
+.story .doubt { font-size: 12.5px; color: var(--ink); background: color-mix(in srgb, var(--st-investigate) 16%, transparent); border-radius: 6px; padding: 6px 8px; }
+.story .when { font-size: 12px; color: var(--muted); }
+.letter { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; font-weight: 800; font-size: 13px; flex: none;
+  background: var(--st-monitor); color: var(--on-status); }
+.letter.attack { background: var(--st-contain); }
+.letter.suspect { background: var(--st-investigate); }
+.more { font-size: 12.5px; color: var(--ink-2); margin-top: 10px; }
+.moments { list-style: none; margin: 0; padding: 0; max-height: 640px; overflow: auto; }
+.moments li { display: grid; grid-template-columns: 58px 14px minmax(0, 1fr); gap: 8px; padding: 7px 0; align-items: start; font-size: 13px; cursor: pointer; }
+.moments li + li { border-top: 1px solid var(--grid); }
+.moments .time { font-family: var(--mono); color: var(--muted); font-size: 12px; padding-top: 1px; }
+.moments .ic { width: 12px; height: 12px; border-radius: 50%; margin-top: 3px; }
+.moments li.new { animation: flash 1.4s; }
+@keyframes flash { from { background: color-mix(in srgb, var(--accent) 18%, transparent); } }
+.empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
+.truth { display: none; font-size: 12px; font-weight: 650; }
+body.show-truth .truth { display: block; }
+.truth.yes { color: var(--st-contain); } .truth.no { color: var(--muted); }
+
+/* Badges de statut : icône + libellé */
+.badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 650; border: 1px solid currentColor; white-space: nowrap; }
 .badge svg { width: 12px; height: 12px; }
 .badge.monitor { color: var(--muted); }
 .badge.investigate { color: var(--ink); border-color: var(--st-investigate); background: color-mix(in srgb, var(--st-investigate) 18%, transparent); }
 .badge.escalate { color: var(--ink); border-color: var(--st-escalate); background: color-mix(in srgb, var(--st-escalate) 18%, transparent); }
 .badge.contain { color: var(--ink); border-color: var(--st-contain); background: color-mix(in srgb, var(--st-contain) 18%, transparent); }
 
-/* Liste des clusters */
-.clusters { display: flex; flex-direction: column; gap: 10px; max-height: 900px; overflow: auto; padding-right: 2px; }
-.group-title { color: var(--ink-2); font-size: 12px; font-weight: 600; margin: 4px 0 -2px; display: flex; gap: 6px; align-items: center; }
-.ccard { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; cursor: pointer; background: var(--surface); transition: border-color .2s; }
-.ccard:hover, .ccard:focus-visible { border-color: var(--axis); outline: none; }
+/* Vue analyste */
+.agrid { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 12px; align-items: start; margin-top: 12px; }
+.agrid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin-top: 12px; }
+.card h3 { font-size: 13px; margin: 14px 0 2px; }
+.clusters { display: flex; flex-direction: column; gap: 10px; max-height: 920px; overflow: auto; padding-right: 2px; }
+.group-title { color: var(--ink-2); font-size: 12px; font-weight: 650; margin: 4px 0 -2px; display: flex; gap: 6px; align-items: center; }
+.ccard { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; cursor: pointer; background: var(--surface); }
+.ccard:hover { border-color: var(--axis); }
 .ccard.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-.ccard.fresh { animation: flash 1.2s; }
-@keyframes flash { from { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); } }
 .ccard .row1 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.ccard .id { font-weight: 650; }
-.ccard .ver { color: var(--muted); font-size: 12px; font-weight: 400; }
+.ccard .nm { font-weight: 650; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ccard .ver { color: var(--muted); font-size: 12px; font-family: var(--mono); }
 .ccard .prob { font-size: 22px; font-weight: 650; }
-.ccard .meter { height: 6px; border-radius: 3px; background: var(--track); margin: 6px 0; overflow: hidden; }
-.ccard .meter div { height: 100%; border-radius: 3px; }
+.ccard .meter { margin: 6px 0; }
 .ccard .meta { color: var(--ink-2); font-size: 12px; }
-.ccard .mitre { color: var(--ink-2); font-size: 12px; margin-top: 4px; font-variant-numeric: tabular-nums; }
-.ccard .just { color: var(--muted); font-size: 11.5px; margin-top: 6px; line-height: 1.35;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.ccard .mitre { color: var(--ink-2); font-size: 12px; margin-top: 4px; font-family: var(--mono); overflow-wrap: anywhere; }
+.ccard .just { color: var(--muted); font-size: 11.5px; margin-top: 6px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .ccard .row2 { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
-.truth { display: none; margin-top: 6px; font-size: 12px; font-weight: 600; }
-body.show-truth .truth { display: block; }
-.truth.yes { color: var(--st-contain); } .truth.no { color: var(--muted); }
 details.monitored summary { cursor: pointer; color: var(--ink-2); font-size: 12px; padding: 6px 0; }
-details.monitored ul { list-style: none; margin: 0; padding: 0; columns: 2; font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.empty { color: var(--muted); font-size: 13px; padding: 12px 0; }
-
-/* Flux d'alertes et journal */
-.feed { list-style: none; margin: 0; padding: 0; font-size: 12.5px; }
-.feed li { display: grid; grid-template-columns: 64px 34px 84px minmax(0, 1fr) 70px; gap: 8px; align-items: center;
-  padding: 5px 0; border-bottom: 1px solid var(--grid); }
-.feed li.new { animation: flash 1s; }
-.feed .time, .log .time { color: var(--muted); font-variant-numeric: tabular-nums; }
-.lvl { display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-variant-numeric: tabular-nums; font-weight: 600; }
+details.monitored ul { list-style: none; margin: 0; padding: 0; font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+details.monitored li { padding: 2px 0; }
+.feed, .log { list-style: none; margin: 0; padding: 0; font-size: 12.5px; }
+.feed li { display: grid; grid-template-columns: 58px 34px 84px minmax(0, 1fr) 54px; gap: 8px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--grid); }
+.log li { display: grid; grid-template-columns: 58px 74px 44px minmax(0, 1fr); gap: 8px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--grid); cursor: pointer; }
+.feed .time, .log .time { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+.lvl { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; font-weight: 650; }
 .lvl i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
-.feed .desc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
-.feed .cl { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
-.log { list-style: none; margin: 0; padding: 0; font-size: 12.5px; }
-.log li { display: grid; grid-template-columns: 64px 74px 44px minmax(0, 1fr); gap: 8px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--grid); }
-.log li.new { animation: flash 1s; }
+.feed .desc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feed .cl { color: var(--muted); text-align: right; font-family: var(--mono); font-size: 12px; }
 .log .p { font-weight: 650; font-variant-numeric: tabular-nums; }
-.log .change { color: var(--ink-2); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-footer { color: var(--muted); font-size: 12px; margin: 16px 0 8px; line-height: 1.5; }
-footer b { color: var(--ink-2); font-weight: 600; }
+.log .change { color: var(--ink-2); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; min-width: 0; }
+footer { color: var(--muted); font-size: 12px; margin: 16px 0 8px; line-height: 1.55; }
+footer b { color: var(--ink-2); font-weight: 650; }
+[hidden] { display: none !important; }
 
-@media (max-width: 1100px) {
-  .grid, .grid2 { grid-template-columns: minmax(0, 1fr); }
-  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .tile + .tile::before { display: none; }
+@media (max-width: 1200px) {
+  .hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .situation { grid-column: 1 / -1; order: -1; }
+}
+@media (max-width: 1000px) {
+  .cols, .agrid, .agrid2 { grid-template-columns: minmax(0, 1fr); }
   .clusters { max-height: none; }
 }
-@media (max-width: 560px) {
-  .feed li { grid-template-columns: 56px 30px minmax(0, 1fr); }
+@media (max-width: 640px) {
+  .hero { grid-template-columns: minmax(0, 1fr); }
+  .headline { font-size: 22px; }
+  .feed li { grid-template-columns: 52px 30px minmax(0, 1fr); }
   .feed .host, .feed .cl { display: none; }
-  .tile .value { font-size: 24px; }
-  .clock { min-width: 0; }
+  .log li { grid-template-columns: 52px 44px minmax(0, 1fr); }
+  .log .cid { display: none; }
 }
 </style>
 </head>
@@ -179,61 +240,103 @@ footer b { color: var(--ink-2); font-weight: 600; }
 <div class="wrap">
   <header class="top">
     <div class="brand">
-      <h1>Jev-SOC · triage corrélé en direct</h1>
-      <p id="scenario">Chargement…</p>
+      <h1>Jev-SOC</h1>
+      <p>Wazuh produit des milliers d'alertes isolées. Jev-SOC les relie en activités (corrélation), puis le modèle Jev juge chacune : attaque, doute ou bruit de fond.</p>
     </div>
     <div class="controls">
       <span class="chip" id="mode"><span class="dot"></span><span id="mode-text">—</span></span>
-      <button class="btn" id="play" aria-label="Lecture / pause">❚❚ Pause</button>
+      <button class="btn" id="play" aria-label="Lecture ou pause">❚❚ Pause</button>
       <div class="seg" id="speeds" role="group" aria-label="Vitesse de rejeu"></div>
-      <button class="btn" id="restart" aria-label="Recommencer">↺</button>
-      <button class="btn" id="truth" aria-pressed="false" title="Afficher la vérité terrain (indicateurs APT29)">Vérité terrain</button>
+      <button class="btn" id="restart" aria-label="Recommencer depuis le début">↺</button>
+      <button class="btn" id="truth" aria-pressed="false" title="Afficher la vérité terrain (indicateurs du plan d'émulation APT29)">Vérité terrain</button>
       <button class="btn" id="theme" aria-label="Changer de thème">◐</button>
-      <span class="clock" id="clock">T+00:00</span>
     </div>
   </header>
 
-  <div class="progress" id="progress" role="slider" aria-label="Position dans le rejeu" tabindex="0">
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-overview" aria-selected="true" aria-controls="view-overview">Vue d'ensemble</button>
+    <button class="tab" role="tab" id="tab-analyst" aria-selected="false" aria-controls="view-analyst">Vue analyste SOC</button>
+  </div>
+
+  <div class="progress" id="progress" role="slider" aria-label="Position dans le rejeu (flèches : ±1 min)" tabindex="0">
     <div class="rail"></div><div class="fill" id="pfill"></div><div id="pmarks"></div><div class="knob" id="pknob"></div>
   </div>
-  <div class="progress-legend"><span>Début de l'enregistrement</span><span><i style="display:inline-block;width:2px;height:10px;background:var(--st-contain);vertical-align:-1px"></i> passage en « contenir »</span><span id="pend">—</span></div>
 
-  <section class="kpis" aria-label="Entonnoir de triage">
-    <div class="tile"><div class="label">Alertes Wazuh reçues</div><div class="value" id="k-alerts">0</div><div class="sub" id="k-alerts-sub">dont 0 de niveau ≥ 12</div></div>
-    <div class="tile"><div class="label">Clusters corrélés</div><div class="value" id="k-clusters">0</div><div class="sub" id="k-clusters-sub">0 ouverts</div></div>
-    <div class="tile"><div class="label">Jugés par le modèle</div><div class="value" id="k-judged">0</div><div class="sub" id="k-judged-sub">0 décisions</div></div>
-    <div class="tile"><div class="label"><span class="badge investigate" style="padding:0 6px"></span>À investiguer</div><div class="value" id="k-inv">0</div><div class="sub">P calibrée ≥ <span id="k-inv-th">0,14</span></div></div>
-    <div class="tile hero"><div class="label"><span class="badge contain" style="padding:0 6px"></span>À contenir</div><div class="value" id="k-contain">0</div><div class="sub" id="k-contain-sub">P ≥ 0,70 et isolement recommandé</div></div>
+  <!-- ============================ VUE D'ENSEMBLE ============================ -->
+  <section id="view-overview" role="tabpanel" aria-labelledby="tab-overview">
+    <div class="hero">
+      <div class="card clock-card">
+        <div class="eyebrow">Heure de l'attaque (UTC)</div>
+        <svg class="clock" id="clock" viewBox="0 0 300 70" role="img" aria-label="Horloge"></svg>
+        <div class="elapsed"><b id="elapsed">T+00:00</b> depuis la 1<sup>re</sup> alerte · <span id="date">—</span></div>
+      </div>
+
+      <div class="card situation" aria-live="polite">
+        <span class="level" id="level"><i></i><span id="level-text">En attente</span></span>
+        <h2 class="headline" id="headline">Aucune alerte reçue pour l'instant</h2>
+        <p class="why" id="why">Les alertes Wazuh vont arriver ; le correlator les regroupera en activités.</p>
+        <p class="todo" id="todo"></p>
+        <div class="latest" id="latest"></div>
+      </div>
+
+      <div class="card">
+        <div class="eyebrow" style="margin-bottom:4px">Ce que fait Jev-SOC, en direct</div>
+        <div class="pipeline">
+          <div class="step"><div class="what"><b>Alertes Wazuh</b>le flux brut</div><div class="n" id="n-alerts">0</div></div>
+          <div class="step"><div class="what"><b>Activités corrélées</b>alertes reliées par machine, compte, processus</div><div class="n" id="n-groups">0</div></div>
+          <div class="step"><div class="what"><b>Jugées par Jev</b>assez riches pour décider</div><div class="n" id="n-judged">0</div></div>
+          <div class="step"><div class="what"><b>À traiter</b>par un analyste</div><div><div class="n" id="n-todo">0</div><div class="split" id="n-split">—</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card graph-card">
+      <div class="graph-head">
+        <div>
+          <h2>Propagation de l'attaque</h2>
+          <p class="subtitle" style="margin-bottom:0">Les machines (cercles), les activités qui les touchent (étiquettes reliées) et les déplacements d'une machine à l'autre (flèches). Survoler pour le détail, cliquer pour isoler une activité.</p>
+        </div>
+        <div class="legend" id="g-legend"></div>
+      </div>
+      <div class="chart-wrap graph-scroll" id="g-wrap"><svg id="graph" role="img" aria-label="Graphe de corrélation : machines, activités et propagation"></svg><div class="tooltip" id="g-tip"></div></div>
+    </div>
+
+    <div class="cols">
+      <div class="card">
+        <h2>Attaques détectées</h2>
+        <p class="subtitle">Chaque activité porte une lettre et un nom simple (machines touchées, techniques MITRE des règles Wazuh). Rouge : Jev est sûr. Orange avec « ? » : Jev hésite, un analyste tranche.</p>
+        <div class="stories" id="stories"></div>
+      </div>
+      <div class="card">
+        <h2>Fil de l'attaque</h2>
+        <p class="subtitle">Les moments clés, du plus récent au plus ancien. Cliquer pour isoler l'activité.</p>
+        <ul class="moments" id="moments"></ul>
+      </div>
+    </div>
   </section>
 
-  <section class="grid">
-    <div class="card">
-      <h2>Soupçon du modèle, cluster par cluster</h2>
-      <p class="subtitle">P(intrusion multi-étapes) calibrée, re-jugée à chaque évolution du cluster. Couleur = action recommandée actuelle. Cliquer une courbe ou une carte pour la suivre.</p>
-      <div class="legend" id="p-legend"></div>
-      <div class="chart-wrap" id="p-wrap"><svg id="p-chart" role="img" aria-label="Probabilité d'attaque par cluster au fil du temps"></svg><div class="tooltip" id="p-tip"></div></div>
-      <h3>Alertes Wazuh par minute</h3>
-      <p class="subtitle" style="margin-bottom:4px">Le volume brut que voit l'analyste, par niveau de règle Wazuh.</p>
-      <div class="legend" id="v-legend"></div>
-      <div class="chart-wrap" id="v-wrap"><svg id="v-chart" role="img" aria-label="Nombre d'alertes Wazuh par minute et par niveau"></svg><div class="tooltip" id="v-tip"></div></div>
+  <!-- ============================ VUE ANALYSTE ============================ -->
+  <section id="view-analyst" role="tabpanel" aria-labelledby="tab-analyst" hidden>
+    <div class="agrid">
+      <div class="card">
+        <h2>Probabilité d'attaque, cluster par cluster</h2>
+        <p class="subtitle">P(intrusion multi-étapes) calibrée, re-jugée à chaque évolution du cluster. Couleur = action recommandée.</p>
+        <div class="legend" id="p-legend" style="margin-bottom:6px"></div>
+        <div class="chart-wrap" id="p-wrap"><svg id="p-chart" role="img" aria-label="Probabilité d'attaque par cluster au fil du temps"></svg><div class="tooltip" id="p-tip"></div></div>
+        <h3>Alertes Wazuh par minute</h3>
+        <p class="subtitle" style="margin-bottom:4px">Le volume brut, par niveau de règle Wazuh.</p>
+        <div class="legend" id="v-legend" style="margin-bottom:6px"></div>
+        <div class="chart-wrap" id="v-wrap"><svg id="v-chart" role="img" aria-label="Alertes Wazuh par minute et par niveau"></svg><div class="tooltip" id="v-tip"></div></div>
+      </div>
+      <aside class="card">
+        <h2>Décisions par cluster</h2>
+        <p class="subtitle">Dernière version de chaque décision : probabilités brute et calibrée, chaîne MITRE, justification déterministe.</p>
+        <div class="clusters" id="clusters"></div>
+      </aside>
     </div>
-    <aside class="card">
-      <h2>Clusters à traiter</h2>
-      <p class="subtitle">Triés par action puis par probabilité. Chaque carte = dernière version de la décision.</p>
-      <div class="clusters" id="clusters"></div>
-    </aside>
-  </section>
-
-  <section class="grid2">
-    <div class="card">
-      <h2>Flux d'alertes Wazuh</h2>
-      <p class="subtitle">Les dernières alertes reçues, et le cluster qu'elles rejoignent.</p>
-      <ul class="feed" id="feed"></ul>
-    </div>
-    <div class="card">
-      <h2>Journal des décisions</h2>
-      <p class="subtitle">Chaque re-jugement crée une nouvelle version : rien n'est écrasé.</p>
-      <ul class="log" id="log"></ul>
+    <div class="agrid2">
+      <div class="card"><h2>Flux d'alertes Wazuh</h2><p class="subtitle">Dernières alertes reçues et cluster rejoint.</p><ul class="feed" id="feed"></ul></div>
+      <div class="card"><h2>Journal des décisions</h2><p class="subtitle">Chaque re-jugement crée une nouvelle version, rien n'est écrasé.</p><ul class="log" id="log"></ul></div>
     </div>
   </section>
 
@@ -244,14 +347,20 @@ footer b { color: var(--ink-2); font-weight: 600; }
 
 <script>
 "use strict";
-// ---------------------------------------------------------------------------
-// État et données
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// Constantes
+// ===========================================================================
 const ACTIONS = {
   monitor:     { label: "Surveiller", color: "--st-monitor", rank: 0 },
   investigate: { label: "Investiguer", color: "--st-investigate", rank: 1 },
   escalate:    { label: "Escalader", color: "--st-escalate", rank: 2 },
   contain:     { label: "Contenir", color: "--st-contain", rank: 3 },
+};
+// Nature de l'activité, construite côté moteur (src/jevsoc/naming.py) à partir de l'action.
+const KIND = {
+  attack:  { color: "--st-contain", rank: 2 },
+  suspect: { color: "--st-investigate", rank: 1 },
+  noise:   { color: "--st-monitor", rank: 0 },
 };
 const ICONS = {
   monitor: '<svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="6" cy="6" r="1.6" fill="currentColor"/></svg>',
@@ -260,112 +369,174 @@ const ICONS = {
   contain: '<svg viewBox="0 0 12 12"><path d="M4 1h4l3 3v4l-3 3H4L1 8V4z" fill="currentColor"/><path d="M3.6 6h4.8" stroke="var(--surface)" stroke-width="1.6" stroke-linecap="round"/></svg>',
 };
 const SPEEDS = [5, 10, 20, 60];
-const S = { meta: null, events: [], idx: 0, clock: 0, playing: true, speed: 20, mode: "recorded",
-            selected: null, ended: false, lastFrame: 0, dirty: true };
-let M = freshModel();
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const MAX_STORIES = 9;
+const MAX_PILLS = 8;
 
+// ===========================================================================
+// État : lecture (S) et modèle reconstruit à partir des événements (M)
+// ===========================================================================
+const S = { meta: null, events: [], idx: 0, clock: 0, playing: true, speed: 20, mode: "recorded",
+            selected: null, ended: false, lastFrame: 0, dirty: true, view: "overview", force: true };
+let M = freshModel();
 function freshModel() {
-  return { alerts: 0, high: 0, clusters: new Map(), perMin: [], feed: [], log: [], decisions: 0,
-           latency: 0, newIds: new Set(), newLog: 0, newFeed: 0 };
+  return { alerts: 0, clusters: new Map(), hosts: new Map(), perMin: [], feed: [], log: [],
+           moments: [], letters: 0, newMoments: 0, newFeed: 0, newLog: 0 };
 }
+
+// Utilitaires
 function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 function band(level) { return level >= 12 ? 2 : level >= 7 ? 1 : 0; }
 function fmtT(t) { const s = Math.max(0, Math.floor(t)); return "T+" + String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"); }
 function pct(p) { return Math.round(p * 100) + " %"; }
 function num(n) { return n.toLocaleString("fr-FR"); }
 function dec2(x) { return x.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+// plural(4, "autre activité") -> "4 autres activités" (chaque mot prend un s).
+function plural(n, words) { return n + " " + (n > 1 ? words.split(" ").map(w => w + "s").join(" ") : words); }
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 function badge(action) {
   const b = el("span", "badge " + action);
-  b.innerHTML = ICONS[action];               // icône statique, pas de donnée
+  b.innerHTML = ICONS[action];  // icône statique, aucune donnée
   b.appendChild(document.createTextNode(ACTIONS[action].label));
   return b;
 }
+function actionColor(a) { return css(ACTIONS[a || "monitor"].color); }
+function kindColor(k) { return css(KIND[k || "noise"].color); }
+function letterEl(c) { return el("span", "letter " + (c.last ? c.last.kind : ""), c.letter || "·"); }
+function cname(c) { return c.last ? c.last.name : c.id; }
+function label(c) { return (c.letter ? c.letter + " · " : "") + cname(c); }
+function hostPath(c) { return [...c.hostFirst.entries()].sort((a, b) => a[1].t - b[1].t).map(([h]) => h); }
 
+// ===========================================================================
+// Application des événements (identique pour l'enregistrement et le direct)
+// ===========================================================================
 function cluster(id, t) {
-  if (!M.clusters.has(id)) M.clusters.set(id, { id, firstT: t, alerts: 0, hosts: new Set(), history: [], last: null,
-                                               closed: false, closedT: null, mergedInto: null, mergedT: null });
+  if (!M.clusters.has(id)) M.clusters.set(id, { id, firstT: t, alerts: 0, hostCounts: new Map(), hostFirst: new Map(),
+    users: new Set(), history: [], last: null, closed: false, closedT: null, mergedInto: null, mergedT: null,
+    letter: null, spread: new Set(), spottedT: null });
   return M.clusters.get(id);
 }
+function moment(t, kind, text, clusterId) { M.moments.push({ t, kind, text, cluster: clusterId }); M.newMoments += 1; }
 
-// Applique un événement du moteur (même code pour l'enregistrement et le direct).
 function apply(e) {
   if (e.type === "meta") { setMeta(e); return; }
   if (e.type === "end") { S.ended = true; return; }
   if (e.type === "alert") {
     M.alerts += 1;
-    if (e.level >= 12) M.high += 1;
     const c = cluster(e.cluster, e.t);
     c.alerts += 1;
-    if (e.host) c.hosts.add(e.host);
+    if (e.host) {
+      c.hostCounts.set(e.host, (c.hostCounts.get(e.host) || 0) + 1);
+      if (!c.hostFirst.has(e.host)) c.hostFirst.set(e.host, { t: e.t, technique: e.technique });
+      if (!M.hosts.has(e.host)) M.hosts.set(e.host, { firstT: e.t, alerts: 0, users: new Set() });
+      const h = M.hosts.get(e.host); h.alerts += 1;
+      (e.users || []).forEach(u => { if (u !== "system" && u !== "network service" && u !== "local service") { h.users.add(u); c.users.add(u); } });
+    }
     const m = Math.floor(e.t / 60);
     while (M.perMin.length <= m) M.perMin.push([0, 0, 0]);
     M.perMin[m][band(e.level)] += 1;
     M.feed.unshift(e); if (M.feed.length > 14) M.feed.pop();
     M.newFeed += 1;
+    // Propagation : annoncée après les éventuelles fusions du même instant (voir flushSpread).
+    c.spreadDirty = true;
   } else if (e.type === "merge") {
     const into = cluster(e.into, e.t);
     for (const id of e.absorbed) {
       const c = cluster(id, e.t);
       c.mergedInto = e.into; c.mergedT = e.t;
-      into.alerts += c.alerts; c.hosts.forEach(h => into.hosts.add(h));
+      into.alerts += c.alerts;
+      c.hostCounts.forEach((n, h) => into.hostCounts.set(h, (into.hostCounts.get(h) || 0) + n));
+      c.hostFirst.forEach((v, h) => { const cur = into.hostFirst.get(h); if (!cur || v.t < cur.t) into.hostFirst.set(h, v); });
+      c.users.forEach(u => into.users.add(u));
+      c.spread.forEach(h => into.spread.add(h));
+      into.spreadDirty = true;
+      if (c.letter && into.letter) moment(e.t, "merge", `${c.letter} et ${into.letter} sont la même attaque : le correlator les fusionne en ${into.letter}`, into.id);
+      if (c.letter && !into.letter) { into.letter = c.letter; into.spottedT = c.spottedT; }
     }
   } else if (e.type === "close") {
     const c = cluster(e.cluster, e.t); c.closed = true; c.closedT = e.t;
   } else if (e.type === "decision") {
     const c = cluster(e.cluster, e.t);
-    const prev = c.last ? c.last.action : null;
+    const prev = c.last;
     c.history.push({ t: e.t, p: e.p, action: e.action, version: e.version });
     c.last = e;
-    M.decisions += 1; M.latency += e.latency_ms || 0;
-    M.log.unshift(Object.assign({ prev }, e)); if (M.log.length > 12) M.log.pop();
-    M.newIds.add(e.cluster); M.newLog += 1;
+    M.log.unshift(Object.assign({ prev: prev ? prev.action : null }, e)); if (M.log.length > 12) M.log.pop();
+    M.newLog += 1;
+    if (e.kind !== "noise") {
+      if (!c.letter) c.letter = LETTERS[M.letters++ % 26];
+      if (c.spottedT === null) c.spottedT = e.t;
+      const wasNoise = !prev || prev.kind === "noise";
+      if (wasNoise && e.kind === "attack") moment(e.t, "attack", `Jev repère ${c.letter} « ${e.name} » : attaque à ${pct(e.p)}, isolement recommandé`, c.id);
+      else if (wasNoise) moment(e.t, "doubt", `Jev s'interroge sur ${c.letter} « ${e.name} » (${pct(e.p)}) : à vérifier`, c.id);
+      else if (e.kind === "attack" && prev.kind !== "attack") moment(e.t, "attack", `${c.letter} devient une attaque (${pct(e.p)}) : isolement recommandé`, c.id);
+      c.spreadDirty = true;
+    } else if (prev && prev.kind !== "noise") {
+      moment(e.t, "calm", `${c.letter} retombe dans le bruit de fond (${pct(e.p)})`, c.id);
+    }
   }
   S.dirty = true;
 }
 
-function liveClusters() { return [...M.clusters.values()].filter(c => !c.mergedInto); }
+// Annonce chaque nouvelle machine touchée par une activité suspecte, avec l'heure et la technique
+// de la première alerte sur cette machine. Appelée une fois les événements d'une image appliqués,
+// pour qu'une fusion survenue au même instant apporte d'abord sa propre chronologie.
+function flushSpread() {
+  for (const c of M.clusters.values()) {
+    if (!c.spreadDirty) continue;
+    c.spreadDirty = false;
+    if (!c.mergedInto && c.last && c.last.kind !== "noise") announceSpread(c);
+  }
+}
+function announceSpread(c) {
+  const ordered = [...c.hostFirst.entries()].sort((a, b) => a[1].t - b[1].t);
+  for (let i = 1; i < ordered.length; i++) {
+    const [host, info] = ordered[i];
+    if (c.spread.has(host)) continue;
+    c.spread.add(host);
+    const how = info.technique ? ` (${info.technique})` : "";
+    moment(info.t, "spread", `${c.letter} se propage de ${ordered[i - 1][0]} vers ${host}${how}`, c.id);
+  }
+}
 
-// ---------------------------------------------------------------------------
+function liveClusters() { return [...M.clusters.values()].filter(c => !c.mergedInto); }
+function judged() { return liveClusters().filter(c => c.last); }
+function threats() {
+  return judged().filter(c => c.last.kind !== "noise")
+    .sort((a, b) => KIND[b.last.kind].rank - KIND[a.last.kind].rank || b.last.p - a.last.p);
+}
+
+// ===========================================================================
 // Lecture : enregistrement (horloge locale) ou direct (flux SSE)
-// ---------------------------------------------------------------------------
+// ===========================================================================
 function setMeta(meta) {
   S.meta = meta;
-  document.getElementById("scenario").textContent = meta.title + " · " + meta.source;
-  document.getElementById("k-inv-th").textContent = dec2(meta.investigate_min);
-  document.getElementById("k-contain-sub").textContent = "P ≥ " + dec2(meta.contain_min) + " et isolement recommandé";
-  document.getElementById("pend").textContent = fmtT(meta.duration);
-  if (!meta.truth) document.getElementById("truth").style.display = "none";
   const model = meta.backend === "jev" ? "Jev " + (meta.model || "") : meta.backend;
-  document.getElementById("mode-text").textContent = (S.mode === "live" ? "Direct · " : "Enregistrement · ") + model;
+  document.getElementById("mode-text").textContent = (S.mode === "live" ? "Direct · " : "Rejeu · ") + model;
   document.getElementById("mode").classList.toggle("live", S.mode === "live");
+  if (!meta.truth) document.getElementById("truth").hidden = true;
   const d = new Date(meta.start * 1000);
-  document.getElementById("footer").innerHTML = "";
-  const f = document.getElementById("footer");
+  document.getElementById("date").textContent = d.toLocaleDateString("fr-FR", { timeZone: "UTC", day: "numeric", month: "long", year: "numeric" });
+  const f = document.getElementById("footer"); f.textContent = "";
   const parts = [
-    ["Données : ", meta.source + ", enregistrement du " + d.toLocaleString("fr-FR", { timeZone: "UTC" }) + " UTC, " + num(meta.alerts_total) + " alertes, rejouées en accéléré."],
-    ["Décisions : ", (meta.backend === "jev" ? "vrais appels au modèle Jev (API TypeSafe)" : "backend " + meta.backend) + ", une par évolution notable d'un cluster. "
-      + (meta.calibrated ? "Probabilités recalibrées sur la validation AIT-ADS (Linux) : jamais réglées sur ces données Windows." : "Probabilités brutes.")],
-    ["Vérité terrain : ", "indicateurs tirés du plan d'émulation public d'APT29 (voir data/README.md). Mode shadow : le système recommande, il ne bloque rien."],
+    ["Scénario : ", meta.title + ". " + meta.source + ", " + num(meta.alerts_total) + " alertes, rejouées en accéléré."],
+    ["Décisions : ", (meta.backend === "jev" ? "vrais appels au modèle Jev (API TypeSafe)" : "backend " + meta.backend) + ", un par évolution notable d'une activité. "
+      + (meta.calibrated ? "Probabilités recalibrées sur d'autres données (AIT-ADS, Linux), jamais réglées sur celles-ci." : "Probabilités brutes.")
+      + " Seuils : investiguer dès " + pct(meta.investigate_min) + ", contenir dès " + pct(meta.contain_min) + "."],
+    ["Noms des activités : ", "construits par règles fixes (machines touchées, techniques MITRE des règles Wazuh, action recommandée) : aucun texte généré."],
+    ["Mode shadow : ", "Jev-SOC recommande, il ne bloque rien. Vérité terrain : indicateurs du plan d'émulation public d'APT29."],
   ];
   for (const [b, t] of parts) { const p = el("div"); p.appendChild(el("b", null, b)); p.appendChild(document.createTextNode(t)); f.appendChild(p); }
   buildProgressMarks();
+  lastClockSec = -1; S.dirty = true;
 }
-
-function startRecorded(rec) {
-  S.mode = "recorded";
-  S.events = rec.events;
-  setMeta(rec.meta);
-  requestAnimationFrame(loop);
-}
-
+function startRecorded(rec) { S.mode = "recorded"; S.events = rec.events; setMeta(rec.meta); requestAnimationFrame(loop); }
 function startLive() {
   S.mode = "live";
-  document.getElementById("speeds").style.display = "none";
-  document.getElementById("restart").style.display = "none";
-  document.getElementById("play").style.display = "none";
+  ["speeds", "restart", "play"].forEach(id => document.getElementById(id).hidden = true);
+  document.getElementById("progress").style.pointerEvents = "none";
   const src = new EventSource("stream");
-  src.onmessage = (msg) => {
+  src.onmessage = msg => {
     const e = JSON.parse(msg.data);
     if (e.type === "meta") { setMeta(e); return; }
     if (e.t !== undefined) S.clock = Math.max(S.clock, e.t);
@@ -373,39 +544,42 @@ function startLive() {
   };
   requestAnimationFrame(loop);
 }
-
 function loop(now) {
   if (S.mode === "recorded" && S.meta) {
     const dt = S.lastFrame ? (now - S.lastFrame) / 1000 : 0;
     if (S.playing && !S.ended) S.clock = Math.min(S.meta.duration, S.clock + dt * S.speed);
     while (S.idx < S.events.length && S.events[S.idx].t <= S.clock) apply(S.events[S.idx++]);
-    if (S.idx >= S.events.length && S.clock >= S.meta.duration) { S.ended = true; S.playing = false; updatePlay(); }
+    if (S.idx >= S.events.length && S.clock >= S.meta.duration && !S.ended) { S.ended = true; S.playing = false; updatePlay(); }
   }
   S.lastFrame = now;
-  if (S.dirty || S.playing) render();
+  render();
   requestAnimationFrame(loop);
 }
-
 function seek(t) {
   M = freshModel(); S.idx = 0; S.clock = t; S.ended = false;
   while (S.idx < S.events.length && S.events[S.idx].t <= t) apply(S.events[S.idx++]);
-  M.newIds.clear(); M.newLog = 0; M.newFeed = 0;
-  S.forceLists = true; S.dirty = true;
+  flushSpread();
+  M.newMoments = 0; M.newFeed = 0; M.newLog = 0;
+  S.force = true; S.dirty = true; lastClockSec = -1; lastRender = 0;
 }
 
-// ---------------------------------------------------------------------------
+// ===========================================================================
 // Rendu
-// ---------------------------------------------------------------------------
-let lastRender = 0;
+// ===========================================================================
+let lastRender = 0, lastClockSec = -1;
 function render() {
+  flushSpread();
   const now = performance.now();
-  if (now - lastRender < 120 && !S.dirty) return;
+  const sec = Math.floor(S.clock);
+  if (sec !== lastClockSec || S.force) { lastClockSec = sec; renderClock(); }
+  renderProgress();
+  if (!S.dirty || now - lastRender < 150) return;
   lastRender = now; S.dirty = false;
-  document.getElementById("clock").textContent = fmtT(S.clock) + (S.meta ? " / " + fmtT(S.meta.duration).slice(2) : "");
-  if (S.forceLists) { S.forceFeed = S.forceLog = true; S.forceLists = false; }
-  renderProgress(); renderKpis(); renderPChart(); renderVChart(); renderClusters(); renderFeed(); renderLog();
+  if (S.view === "overview") { renderSituation(); renderPipeline(); renderGraph(); renderStories(); renderMoments(); }
+  else { renderPChart(); renderVChart(); renderClusters(); renderFeed(); renderLog(); }
+  S.force = false;
 }
-
+function rerender() { S.force = true; S.dirty = true; lastRender = 0; render(); }
 function renderProgress() {
   if (!S.meta) return;
   const f = Math.min(1, S.clock / S.meta.duration) * 100;
@@ -417,242 +591,459 @@ function buildProgressMarks() {
   if (!S.meta || !S.events.length) return;
   const seen = new Set();
   for (const e of S.events) {
-    if (e.type === "decision" && e.action === "contain" && !seen.has(e.cluster)) {
+    if (e.type === "decision" && e.kind === "attack" && !seen.has(e.cluster)) {
       seen.add(e.cluster);
-      const m = el("div", "mark"); m.style.left = (e.t / S.meta.duration * 100) + "%"; m.title = e.cluster + " → contenir à " + fmtT(e.t);
+      const m = el("div", "mark"); m.style.left = (e.t / S.meta.duration * 100) + "%"; m.title = "Attaque repérée à " + fmtT(e.t);
       box.appendChild(m);
     }
   }
 }
 
-function renderKpis() {
-  const live = liveClusters();
-  const judged = live.filter(c => c.last);
-  const action = c => c.last && c.last.action;
-  document.getElementById("k-alerts").textContent = num(M.alerts);
-  document.getElementById("k-alerts-sub").textContent = "dont " + num(M.high) + " de niveau ≥ 12";
-  document.getElementById("k-clusters").textContent = num(live.length);
-  document.getElementById("k-clusters-sub").textContent = num(live.filter(c => !c.closed).length) + " ouverts en ce moment";
-  document.getElementById("k-judged").textContent = num(judged.length);
-  document.getElementById("k-judged-sub").textContent = num(M.decisions) + " décisions" + (M.decisions ? " · " + Math.round(M.latency / M.decisions) + " ms en moyenne" : "");
-  document.getElementById("k-inv").textContent = num(judged.filter(c => action(c) === "investigate").length);
-  document.getElementById("k-contain").textContent = num(judged.filter(c => ["contain", "escalate"].includes(action(c))).length);
+// --- Horloge numérique à 7 segments (SVG) -------------------------------------
+// Chaque chiffre allume ses segments (a = haut, b/c = droite, d = bas, e/f = gauche, g = milieu).
+// La couleur suit la situation : bleu au calme, orange en cas de doute, rouge pendant une attaque.
+const SEG = { 0: "abcdef", 1: "bc", 2: "abged", 3: "abgcd", 4: "fgbc", 5: "afgcd", 6: "afgedc", 7: "abc", 8: "abcdefg", 9: "abcdfg" };
+function digitRects(x, w, h, t) {
+  const v = h / 2 - 1.5 * t;
+  return {
+    a: [x + t, 0, w - 2 * t, t], b: [x + w - t, t, t, v], c: [x + w - t, h / 2 + 0.5 * t, t, v],
+    d: [x + t, h - t, w - 2 * t, t], e: [x, h / 2 + 0.5 * t, t, v], f: [x, t, t, v], g: [x + t, h / 2 - t / 2, w - 2 * t, t],
+  };
+}
+function renderClock() {
+  if (!S.meta) return;
+  const svg = document.getElementById("clock");
+  const d = new Date((S.meta.start + S.clock) * 1000);
+  const txt = [d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()].map(n => String(n).padStart(2, "0")).join(":");
+  const level = situationLevel();
+  const on = level === "attack" ? css("--st-contain") : level === "suspect" ? css("--st-investigate") : css("--accent");
+  const off = css("--grid");
+  const w = 32, h = 60, t = 7, gap = 7, colon = 14;
+  const parts = [`<g transform="translate(8,2) skewX(-6)">`];
+  let x = 0;
+  for (const ch of txt) {
+    if (ch === ":") {
+      for (const yy of [h * 0.3, h * 0.62]) parts.push(`<rect x="${x + colon / 2 - 3.5}" y="${yy}" width="7" height="7" rx="2" fill="${on}"/>`);
+      x += colon + gap;
+      continue;
+    }
+    const rects = digitRects(x, w, h, t);
+    for (const s of "abcdefg") {
+      const [rx, ry, rw, rh] = rects[s];
+      parts.push(`<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" rx="${t / 2}" fill="${SEG[ch].includes(s) ? on : off}"${SEG[ch].includes(s) ? "" : ' opacity=".4"'}/>`);
+    }
+    x += w + gap;
+  }
+  parts.push("</g>");
+  svg.setAttribute("viewBox", `0 0 ${x + 8} ${h + 4}`);
+  svg.innerHTML = parts.join("");
+  svg.setAttribute("aria-label", "Heure de l'attaque : " + txt + " UTC");
+  document.getElementById("elapsed").textContent = fmtT(S.clock);
 }
 
-// Valeur d'un historique en escalier au temps t (null avant la première décision).
-function pAt(c, t) {
-  let p = null;
-  for (const h of c.history) { if (h.t <= t) p = h.p; else break; }
-  return p;
+// --- Situation -------------------------------------------------------------------
+function situationLevel() {
+  const th = threats();
+  if (th.some(c => c.last.kind === "attack")) return "attack";
+  if (th.length) return "suspect";
+  if (judged().length) return "watch";
+  return "wait";
 }
-function hostShort(c) { const h = [...c.hosts]; return h.length > 1 ? h[0] + " +" + (h.length - 1) : (h[0] || ""); }
+function renderSituation() {
+  const level = situationLevel(), th = threats();
+  const attacks = th.filter(c => c.last.kind === "attack"), doubts = th.filter(c => c.last.kind === "suspect");
+  document.getElementById("level").className = "level " + level;
+  document.getElementById("level-text").textContent =
+    { attack: "Attaque en cours", suspect: "Suspicion", watch: "Surveillance", wait: "En attente" }[level];
+  const h = document.getElementById("headline"), why = document.getElementById("why"), todo = document.getElementById("todo");
+  h.textContent = "";
+  if (level === "attack") {
+    const top = attacks[0];
+    h.appendChild(letterEl(top)); h.appendChild(el("span", null, top.last.name));
+    why.textContent = `Jev est sûr à ${pct(top.last.p)} qu'il s'agit d'une intrusion en plusieurs étapes`
+      + (top.last.summary.length ? ` : ${top.last.summary.join(", ")}.` : ".")
+      + ` ${num(top.alerts)} alertes Wazuh reliées entre elles.`;
+    const machines = [...new Set(attacks.flatMap(c => hostPath(c)))];
+    todo.textContent = `À faire : isoler ${machines.join(", ")}.`
+      + (attacks.length > 1 ? ` ${attacks.length} attaques en cours.` : "")
+      + (doubts.length ? ` Jev hésite sur ${plural(doubts.length, "autre activité")}.` : "");
+  } else if (level === "suspect") {
+    h.textContent = `Jev s'interroge sur ${plural(doubts.length, "activité")}`;
+    why.textContent = `La plus suspecte : ${doubts[0].letter} « ${doubts[0].last.name} » à ${pct(doubts[0].last.p)}. Ni clairement une attaque, ni clairement du bruit.`;
+    todo.textContent = "À faire : un analyste vérifie ces activités.";
+  } else if (level === "watch") {
+    h.textContent = "Rien d'alarmant pour l'instant";
+    why.textContent = `${plural(judged().length, "activité")} jugée(s) par Jev : tout ressemble à du bruit de fond Windows.`;
+    todo.textContent = "";
+  } else {
+    h.textContent = "Aucune activité à juger pour l'instant";
+    why.textContent = "Les alertes arrivent ; le correlator les regroupe avant de demander l'avis de Jev.";
+    todo.textContent = "";
+  }
+  const latest = document.getElementById("latest"); latest.textContent = "";
+  const last = M.moments.reduce((a, b) => (!a || b.t >= a.t ? b : a), null);
+  if (last) { latest.appendChild(el("span", "time", fmtT(last.t))); latest.appendChild(el("span", null, last.text)); }
+}
+function renderPipeline() {
+  const th = threats(), attacks = th.filter(c => c.last.kind === "attack").length, doubts = th.length - attacks;
+  document.getElementById("n-alerts").textContent = num(M.alerts);
+  document.getElementById("n-groups").textContent = num(liveClusters().length);
+  document.getElementById("n-judged").textContent = num(judged().length);
+  document.getElementById("n-todo").textContent = num(th.length);
+  document.getElementById("n-split").textContent = `${plural(attacks, "attaque")} · ${plural(doubts, "doute")}`;
+}
+
+// --- Graphe de propagation ------------------------------------------------------------
+// Rangée centrale : les machines, dans l'ordre où elles apparaissent. Au-dessus : les activités
+// suspectes ou malveillantes, reliées aux machines qu'elles touchent (épaisseur = part des
+// alertes). En dessous : les flèches de propagation (machine d'avant -> nouvelle machine) avec
+// l'heure et la technique de la première alerte sur la nouvelle machine. Tout en bas : le bruit.
+const G = { pillW: 240, pillH: 50, rowGap: 14, r: 44, margin: 24 };
+function renderGraph() {
+  const svg = document.getElementById("graph"), wrap = document.getElementById("g-wrap");
+  if (!S.meta) return;
+  const W = Math.max(760, wrap.clientWidth);
+  const hosts = [...M.hosts.entries()].sort((a, b) => a[1].firstT - b[1].firstT).map(([h]) => h);
+  const th = threats();
+  const perRow = Math.max(1, Math.floor((W - 2 * G.margin + 12) / (G.pillW + 12)));
+  const rows = Math.min(3, Math.max(1, Math.ceil(Math.min(th.length, MAX_PILLS) / perRow)));
+  const rowsY = Array.from({ length: rows }, (_, i) => 6 + i * (G.pillH + G.rowGap));
+  const hostY = rowsY.at(-1) + G.pillH + 92, arcY = hostY + G.r + 6;
+  const size = H => { svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("width", W); svg.setAttribute("height", H); };
+  const cCrit = css("--st-contain"), cWarn = css("--st-investigate"), cMuted = css("--st-monitor"), surf = css("--surface"), ink = css("--ink"), ink2 = css("--ink-2");
+  const parts = [`<defs>${[["crit", cCrit], ["warn", cWarn]].map(([id, c]) =>
+    `<marker id="arrow-${id}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="${c}"/></marker>`).join("")}</defs>`];
+  if (!hosts.length) {
+    parts.push(`<text x="${W / 2}" y="${hostY}" text-anchor="middle" style="font-size:13px">En attente des premières alertes…</text>`);
+    size(hostY + 40); svg.innerHTML = parts.join(""); return;
+  }
+  const span = (W - 2 * G.margin) / hosts.length;
+  const hx = {}; hosts.forEach((h, i) => hx[h] = G.margin + (i + 0.5) * span);
+  const sel = S.selected;
+  const fadeOf = id => (sel && sel !== id ? 0.15 : 1);
+
+  // Placement des étiquettes : au plus près du centre de leurs machines, sans chevauchement.
+  // Au plus MAX_PILLS étiquettes (les plus graves d'abord) : le graphe doit se lire d'un coup d'œil.
+  const placed = []; let hidden = Math.max(0, th.length - MAX_PILLS);
+  for (const c of th.slice(0, MAX_PILLS)) {
+    const hs = [...c.hostCounts.keys()].filter(h => hx[h] !== undefined);
+    if (!hs.length) continue;
+    const anchor = hs.reduce((s, h) => s + hx[h], 0) / hs.length;
+    let spot = null;
+    for (const k of [0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5]) {
+      for (const y of rowsY) {
+        const x = Math.min(W - G.margin - G.pillW / 2, Math.max(G.margin + G.pillW / 2, anchor + k * (G.pillW + 12)));
+        if (!placed.some(p => p.y === y && Math.abs(p.x - x) < G.pillW + 10)) { spot = { x, y }; break; }
+      }
+      if (spot) break;
+    }
+    if (spot) placed.push({ c, hs, x: spot.x, y: spot.y }); else hidden += 1;
+  }
+
+  // Liens activité -> machines
+  for (const p of placed) {
+    const color = kindColor(p.c.last.kind), fade = fadeOf(p.c.id);
+    for (const h of p.hs) {
+      const share = p.c.hostCounts.get(h) / p.c.alerts;
+      const x1 = p.x, y1 = p.y + G.pillH, x2 = hx[h], y2 = hostY - G.r;
+      parts.push(`<path d="M${x1},${y1} C${x1},${(y1 + y2) / 2} ${x2},${(y1 + y2) / 2} ${x2},${y2}" fill="none" stroke="${color}" stroke-width="${1.5 + 4 * share}" stroke-linecap="round" opacity="${0.75 * fade}"/>`);
+    }
+  }
+
+  // Flèches de propagation (sous les machines)
+  // Une étiquette qui en chevaucherait une autre fait plonger son arc un cran plus bas.
+  const arcLabels = [];
+  for (const c of placed.map(p => p.c)) {
+    const ordered = [...c.hostFirst.entries()].filter(([h]) => hx[h] !== undefined).sort((a, b) => a[1].t - b[1].t);
+    const attack = c.last.kind === "attack", color = attack ? cCrit : cWarn, fade = fadeOf(c.id);
+    for (let i = 1; i < ordered.length; i++) {
+      const [a] = ordered[i - 1], [b, info] = ordered[i];
+      const dir = hx[b] > hx[a] ? 1 : -1, sx = hx[a] + dir * 12, ex = hx[b] - dir * 12;
+      const txt = `${c.letter} · ${fmtT(info.t)}${info.technique ? " · " + info.technique : ""}`;
+      const lx = (sx + ex) / 2, w = txt.length * 6.3 + 14;
+      let depth = 30;
+      while (depth < 200 && arcLabels.some(l => Math.abs(l.y - (arcY + depth + 4)) < 22 && Math.abs(l.x - lx) < (l.w + w) / 2 + 6)) depth += 26;
+      parts.push(`<path d="M${sx},${arcY} Q${(sx + ex) / 2},${arcY + depth * 2} ${ex},${arcY}" fill="none" stroke="${color}" stroke-width="${attack ? 3 : 2}" ${attack ? "" : 'stroke-dasharray="6 4"'} marker-end="url(#arrow-${attack ? "crit" : "warn"})" opacity="${fade}"/>`);
+      arcLabels.push({ x: lx, y: arcY + depth + 4, w, txt, fade, color });
+    }
+  }
+  for (const l of arcLabels) {
+    parts.push(`<g opacity="${l.fade}"><rect x="${l.x - l.w / 2}" y="${l.y - 10}" width="${l.w}" height="20" rx="10" fill="${surf}" stroke="${l.color}"/>`);
+    parts.push(`<text x="${l.x}" y="${l.y + 4}" text-anchor="middle" style="fill:${ink};font-size:11.5px;font-weight:600">${esc(l.txt)}</text></g>`);
+  }
+
+  // Machines et bruit de fond (le bruit passe sous l'arc le plus profond)
+  const noiseY = arcLabels.reduce((m, l) => Math.max(m, l.y + 10), arcY) + 34;
+  size(noiseY + 30);
+  const noiseByHost = {};
+  for (const c of judged().filter(c => c.last.kind === "noise")) for (const h of c.hostCounts.keys()) noiseByHost[h] = (noiseByHost[h] || 0) + 1;
+  for (const h of hosts) {
+    const touching = th.filter(c => c.hostCounts.has(h));
+    const worst = touching.some(c => c.last.kind === "attack") ? "attack" : touching.length ? "suspect" : null;
+    const stroke = worst === "attack" ? cCrit : worst === "suspect" ? cWarn : css("--axis");
+    const info = M.hosts.get(h), x = hx[h];
+    parts.push(`<g class="g-node" data-host="${esc(h)}">`);
+    if (worst === "attack") parts.push(`<circle cx="${x}" cy="${hostY}" r="${G.r + 8}" fill="${cCrit}" opacity=".15"/>`);
+    parts.push(`<circle cx="${x}" cy="${hostY}" r="${G.r}" fill="${surf}" stroke="${stroke}" stroke-width="${worst ? 3 : 1.5}"/>`);
+    parts.push(`<text x="${x}" y="${hostY - 3}" text-anchor="middle" style="fill:${ink};font-size:12px;font-weight:700">${esc(h)}</text>`);
+    parts.push(`<text x="${x}" y="${hostY + 13}" text-anchor="middle">${plural(info.alerts, "alerte")}</text>`);
+    if (worst) {
+      const tag = worst === "attack" ? "COMPROMISE" : "SUSPECTE";
+      parts.push(`<text x="${x + G.r + 8}" y="${hostY - G.r + 6}" style="fill:${worst === "attack" ? cCrit : ink2};font-size:10.5px;font-weight:800;letter-spacing:.06em">${tag}</text>`);
+    }
+    parts.push(`</g>`);
+    const n = noiseByHost[h] || 0;
+    if (n) {
+      const shown = Math.min(n, 14);
+      parts.push(`<g class="g-node" data-noise="${esc(h)}">`);
+      for (let i = 0; i < shown; i++) parts.push(`<circle cx="${x - (shown - 1) * 5 + i * 10}" cy="${noiseY}" r="3.5" fill="${cMuted}" opacity=".7"/>`);
+      parts.push(`<text x="${x}" y="${noiseY + 20}" text-anchor="middle">${plural(n, "groupe")} de bruit</text>`);
+      parts.push(`<rect x="${x - 80}" y="${noiseY - 10}" width="160" height="36" fill="transparent"/></g>`);
+    }
+  }
+
+  // Étiquettes d'activité (au-dessus des liens)
+  const truth = document.body.classList.contains("show-truth");
+  for (const p of placed) {
+    const c = p.c, e = c.last, color = kindColor(e.kind), x = p.x - G.pillW / 2, y = p.y;
+    // Dans le graphe, la couleur et la lettre disent déjà la nature : on garde le trajet (machines).
+    const path = hostPath(c).join(" → ");
+    const name = path.length > 23 ? path.slice(0, 22) + "…" : path;
+    const sub = e.kind === "attack" ? `Intrusion · ${pct(e.p)} · contenir` : `Suspect · ${pct(e.p)} · Jev hésite`;
+    const verdict = truth && e.truth !== undefined ? (e.truth ? " · ✓ réelle" : " · ✗ fausse alerte") : "";
+    parts.push(`<g class="g-node" data-cluster="${c.id}" opacity="${sel && sel !== c.id ? 0.3 : 1}">`);
+    parts.push(`<rect x="${x}" y="${y}" width="${G.pillW}" height="${G.pillH}" rx="10" fill="${surf}" stroke="${color}" stroke-width="${sel === c.id ? 3.5 : e.kind === "attack" ? 2.5 : 1.5}"/>`);
+    parts.push(`<rect x="${x + 9}" y="${y + 12}" width="26" height="26" rx="6" fill="${color}"/>`);
+    parts.push(`<text x="${x + 22}" y="${y + 30}" text-anchor="middle" style="fill:${css("--on-status")};font-size:14px;font-weight:800">${c.letter}</text>`);
+    parts.push(`<text x="${x + 44}" y="${y + 21}" style="fill:${ink};font-size:12.5px;font-weight:700">${esc(name)}</text>`);
+    parts.push(`<text x="${x + 44}" y="${y + 38}" style="fill:${ink2};font-size:11.5px">${esc(sub + verdict)}</text>`);
+    if (e.doubt) {
+      const qx = x + G.pillW - 3, qy = y + 3;
+      parts.push(`<circle class="g-doubt" cx="${qx}" cy="${qy}" r="14" fill="none" stroke="${cWarn}" stroke-width="2"/>`);
+      parts.push(`<circle cx="${qx}" cy="${qy}" r="10" fill="${cWarn}" stroke="${surf}" stroke-width="2"/>`);
+      parts.push(`<text x="${qx}" y="${qy + 4.5}" text-anchor="middle" style="fill:${css("--on-status")};font-size:13px;font-weight:800">?</text>`);
+    }
+    parts.push(`</g>`);
+  }
+  if (hidden) parts.push(`<text x="${W - G.margin}" y="${hostY - G.r - 30}" text-anchor="end">+${plural(hidden, "autre activité")} moins graves (liste ci-dessous)</text>`);
+  svg.innerHTML = parts.join("");
+}
+function renderGraphLegend() {
+  const box = document.getElementById("g-legend"); box.textContent = "";
+  const add = (node, text) => { const k = el("span", "key"); k.appendChild(node); k.appendChild(document.createTextNode(text)); box.appendChild(k); };
+  const sw = (c, round) => { const s = el("span", "sw"); s.style.borderColor = `var(${c})`; if (round) { s.style.borderRadius = "50%"; s.style.background = `var(${c})`; } return s; };
+  add(sw("--st-contain"), "Intrusion : Jev est sûr");
+  add(sw("--st-investigate"), "Activité suspecte");
+  add(el("span", "q", "?"), "Jev hésite");
+  const ln = el("span", "line"); ln.style.background = "var(--st-contain)"; add(ln, "Propagation (heure · technique)");
+  add(sw("--st-monitor", true), "Bruit de fond");
+}
+
+// --- Récit : activités nommées et fil des moments clés ---------------------------------------
+function renderStories() {
+  const box = document.getElementById("stories"); box.textContent = "";
+  const th = threats();
+  if (!th.length) { box.appendChild(el("div", "empty", judged().length ? "Aucune activité suspecte : tout ce qui a été jugé ressemble à du bruit de fond." : "Pas encore d'activité jugée.")); return; }
+  const shown = th.filter((c, i) => i < MAX_STORIES || c.id === S.selected);
+  for (const c of shown) {
+    const e = c.last;
+    const card = el("div", "story " + e.kind + (S.selected === c.id ? " selected" : ""));
+    card.tabIndex = 0; card.setAttribute("role", "button");
+    card.addEventListener("click", () => select(c.id));
+    card.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(c.id); } });
+    const top = el("div", "top"); top.appendChild(letterEl(c)); top.appendChild(el("span", "nm", e.name)); card.appendChild(top);
+    const pl = el("div", "pline"); pl.appendChild(el("span", "p", pct(e.p))); pl.appendChild(badge(e.action)); card.appendChild(pl);
+    const meter = el("div", "meter"); const f = el("div"); f.style.width = e.p * 100 + "%"; f.style.background = kindColor(e.kind); meter.appendChild(f); card.appendChild(meter);
+    card.appendChild(el("div", "path", hostPath(c).join(" → ") + (c.users.size ? " · compte " + [...c.users].slice(0, 3).join(", ") : "")));
+    if (e.summary && e.summary.length) { const t = el("div", "tech"); e.summary.forEach(s => t.appendChild(el("span", null, s))); card.appendChild(t); }
+    if (e.doubt) card.appendChild(el("div", "doubt", `? Jev hésite : ${pct(e.p)}, entre le seuil d'investigation (${pct(S.meta.investigate_min)}) et celui de confinement (${pct(S.meta.contain_min)}).`));
+    card.appendChild(el("div", "when", `${num(c.alerts)} alertes · repérée à ${fmtT(c.spottedT ?? e.t)} · décision v${e.version}`));
+    if (e.truth !== undefined) card.appendChild(el("div", "truth " + (e.truth ? "yes" : "no"), e.truth ? "✓ Vérité : actions réelles de l'attaquant" : "✗ Vérité : aucun indicateur d'attaque (fausse alerte)"));
+    box.appendChild(card);
+  }
+  if (th.length > shown.length) box.appendChild(el("div", "more", `+ ${plural(th.length - shown.length, "autre activité")} : détail dans la vue analyste.`));
+}
+function renderMoments() {
+  const ul = document.getElementById("moments");
+  if (!M.newMoments && !S.force && ul.childElementCount) return;
+  ul.textContent = "";
+  const list = M.moments.map((m, i) => Object.assign({ i }, m)).sort((a, b) => b.t - a.t || b.i - a.i).slice(0, 14);
+  if (!list.length) { ul.appendChild(el("li", "empty", "Rien de notable pour l'instant.")); return; }
+  const fresh = M.moments.length - M.newMoments;
+  const colors = { attack: "--st-contain", doubt: "--st-investigate", spread: "--st-contain", merge: "--accent", calm: "--st-monitor" };
+  for (const m of list) {
+    const li = el("li", m.i >= fresh && !S.force ? "new" : "");
+    li.appendChild(el("span", "time", fmtT(m.t)));
+    const ic = el("span", "ic"); ic.style.background = `var(${colors[m.kind]})`; if (m.kind === "spread") ic.style.borderRadius = "2px"; li.appendChild(ic);
+    li.appendChild(el("span", null, m.text));
+    li.addEventListener("click", () => select(m.cluster));
+    ul.appendChild(li);
+  }
+  M.newMoments = 0;
+}
+
+// ===========================================================================
+// Vue analyste : courbes de probabilité, volume, cartes détaillées, flux, journal
+// ===========================================================================
+function pAt(c, t) { let p = null; for (const h of c.history) { if (h.t <= t) p = h.p; else break; } return p; }
 function endT(c) { return c.mergedT !== null ? c.mergedT : c.closed ? c.closedT : S.clock; }
-function actionColor(a) { return css(ACTIONS[a || "monitor"].color); }
-
-const P = { left: 44, right: 150, top: 10, bottom: 26, h: 300 };
+const P = { left: 44, right: 190, top: 10, bottom: 26, h: 300 };
 function renderPChart() {
-  const svg = document.getElementById("p-chart");
-  const W = document.getElementById("p-wrap").clientWidth;
+  const svg = document.getElementById("p-chart"), W = document.getElementById("p-wrap").clientWidth;
   if (!S.meta || !W) return;
   const H = P.h, pw = W - P.left - P.right, ph = H - P.top - P.bottom;
-  const x = t => P.left + (t / S.meta.duration) * pw;
-  const y = p => P.top + (1 - p) * ph;
+  const x = t => P.left + (t / S.meta.duration) * pw, y = p => P.top + (1 - p) * ph;
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("width", W); svg.setAttribute("height", H);
   const parts = [];
-  // Grille et axes
   for (const v of [0, 0.25, 0.5, 0.75, 1]) {
-    parts.push(`<line x1="${P.left}" x2="${P.left + pw}" y1="${y(v)}" y2="${y(v)}" stroke="${css("--grid")}" stroke-width="1"/>`);
+    parts.push(`<line x1="${P.left}" x2="${P.left + pw}" y1="${y(v)}" y2="${y(v)}" stroke="${css("--grid")}"/>`);
     parts.push(`<text x="${P.left - 8}" y="${y(v) + 4}" text-anchor="end">${v * 100} %</text>`);
   }
-  const step = S.meta.duration > 3600 ? 900 : S.meta.duration > 1200 ? 300 : 120;
+  const step = S.meta.duration > 1200 ? 300 : 120;
   for (let t = 0; t <= S.meta.duration; t += step) parts.push(`<text x="${x(t)}" y="${H - 6}" text-anchor="middle">${Math.round(t / 60)} min</text>`);
-  parts.push(`<line x1="${P.left}" x2="${P.left + pw}" y1="${y(0)}" y2="${y(0)}" stroke="${css("--axis")}" stroke-width="1"/>`);
-  // Seuils de la politique
-  for (const [v, label] of [[S.meta.investigate_min, "seuil d'investigation"], [S.meta.contain_min, "confinement possible"]]) {
-    parts.push(`<line x1="${P.left}" x2="${P.left + pw}" y1="${y(v)}" y2="${y(v)}" stroke="${css("--ink-2")}" stroke-width="1" opacity=".55"/>`);
-    parts.push(`<text x="${P.left + 6}" y="${y(v) - 5}">${label} (${dec2(v)})</text>`);
+  for (const [v, lab] of [[S.meta.investigate_min, "seuil d'investigation"], [S.meta.contain_min, "confinement possible"]]) {
+    parts.push(`<line x1="${P.left}" x2="${P.left + pw}" y1="${y(v)}" y2="${y(v)}" stroke="${css("--ink-2")}" stroke-dasharray="4 4" opacity=".6"/>`);
+    parts.push(`<text x="${P.left + 6}" y="${y(v) - 5}">${lab} (${dec2(v)})</text>`);
   }
-  // Instant présent
-  parts.push(`<line x1="${x(S.clock)}" x2="${x(S.clock)}" y1="${P.top}" y2="${P.top + ph}" stroke="${css("--accent")}" stroke-width="1" opacity=".6"/>`);
-
-  // Courbes : d'abord les clusters surveillés (en retrait), puis les autres par-dessus.
-  const withHist = [...M.clusters.values()].filter(c => c.history.length);
-  withHist.sort((a, b) => ACTIONS[(a.last || {}).action || "monitor"].rank - ACTIONS[(b.last || {}).action || "monitor"].rank);
+  parts.push(`<line x1="${x(S.clock)}" x2="${x(S.clock)}" y1="${P.top}" y2="${P.top + ph}" stroke="${css("--accent")}" opacity=".6"/>`);
+  const hist = [...M.clusters.values()].filter(c => c.history.length)
+    .sort((a, b) => ACTIONS[a.last.action].rank - ACTIONS[b.last.action].rank);
   const labels = [];
-  for (const c of withHist) {
-    const act = c.last.action;
-    const end = Math.max(endT(c), c.history[c.history.length - 1].t);
-    let d = "", prevP = null;
-    for (const h of c.history) {
-      d += prevP === null ? `M${x(h.t)},${y(h.p)}` : `H${x(h.t)}V${y(h.p)}`;
-      prevP = h.p;
-    }
+  for (const c of hist) {
+    const act = c.last.action, end = Math.max(endT(c), c.history.at(-1).t);
+    let d = "", prev = null;
+    for (const h of c.history) { d += prev === null ? `M${x(h.t)},${y(h.p)}` : `H${x(h.t)}V${y(h.p)}`; prev = h.p; }
     d += `H${x(end)}`;
-    const quiet = act === "monitor" || c.mergedInto;
-    const sel = S.selected === c.id;
-    const faded = S.selected && !sel;
-    const color = actionColor(act);
-    const width = sel ? 3 : quiet ? 1.5 : 2;
-    const opacity = faded ? 0.15 : quiet ? 0.45 : 1;
-    parts.push(`<path d="${d}" fill="none" stroke="${color}" stroke-width="${width}" stroke-linejoin="round" stroke-linecap="round" opacity="${opacity}" data-id="${c.id}" style="cursor:pointer"/>`);
+    const quiet = act === "monitor" || c.mergedInto, sel = S.selected === c.id, faded = S.selected && !sel;
+    parts.push(`<path d="${d}" fill="none" stroke="${actionColor(act)}" stroke-width="${sel ? 3 : quiet ? 1.5 : 2}" stroke-linejoin="round" opacity="${faded ? 0.15 : quiet ? 0.45 : 1}"/>`);
     parts.push(`<path d="${d}" fill="none" stroke="transparent" stroke-width="12" data-id="${c.id}" style="cursor:pointer"/>`);
     if (!quiet) {
       for (const h of c.history) parts.push(`<circle cx="${x(h.t)}" cy="${y(h.p)}" r="4" fill="${actionColor(h.action)}" stroke="${css("--surface")}" stroke-width="2" opacity="${faded ? 0.2 : 1}"/>`);
-      labels.push({ c, y: y(prevP), x: x(end), color });
+      labels.push({ c, y: y(prev), x: x(end) });
     }
   }
-  // Étiquettes en bout de courbe, dans la gouttière de droite, sans chevauchement (traits de rappel).
-  const shown = labels.sort((a, b) => a.y - b.y).slice(0, 6);  // les plus hauts = les plus suspects
+  // Étiquettes directes à droite : les 6 activités les plus suspectes, sans chevauchement.
+  const shown = labels.sort((a, b) => b.c.last.p - a.c.last.p).slice(0, 6).sort((a, b) => a.y - b.y);
   let lastY = -Infinity;
   for (const l of shown) { l.ly = Math.max(l.y, lastY + 15); lastY = l.ly; }
-  const overflow = lastY - (P.top + ph);
-  if (overflow > 0) shown.forEach(l => l.ly -= overflow);
+  const over = lastY - (P.top + ph); if (over > 0) shown.forEach(l => l.ly -= over);
   for (const l of shown) {
-    const gx = P.left + pw + 10;
-    parts.push(`<path d="M${l.x + 3},${l.y}L${gx - 2},${l.ly}" stroke="${css("--axis")}" stroke-width="1" fill="none"/>`);
-    parts.push(`<text x="${gx}" y="${l.ly + 4}" style="fill:${css("--ink-2")}">${l.c.id.replace("clu-", "#")} · ${hostShort(l.c)}</text>`);
+    const gx = P.left + pw + 10, nm = label(l.c);
+    parts.push(`<path d="M${l.x + 3},${l.y}L${gx - 2},${l.ly}" stroke="${css("--axis")}" fill="none"/>`);
+    parts.push(`<text x="${gx}" y="${l.ly + 4}" style="fill:${css("--ink-2")}">${esc(nm.length > 27 ? nm.slice(0, 26) + "…" : nm)}</text>`);
   }
-  if (!withHist.length) parts.push(`<text x="${P.left + pw / 2}" y="${P.top + ph / 2}" text-anchor="middle">En attente des premiers clusters jugeables…</text>`);
   svg.innerHTML = parts.join("");
 }
-
-function renderPLegend() {
-  const box = document.getElementById("p-legend");
-  box.textContent = "";
-  for (const a of ["monitor", "investigate", "contain"]) {
-    const k = el("span", "key"); const l = el("span", "line"); l.style.background = `var(${ACTIONS[a].color})`;
-    k.appendChild(l); k.appendChild(document.createTextNode(ACTIONS[a].label)); box.appendChild(k);
-  }
-  const k = el("span", "key"); const l = el("span", "line"); l.style.background = "var(--accent)";
-  k.appendChild(l); k.appendChild(document.createTextNode("Instant présent")); box.appendChild(k);
-}
-
-const V = { left: 44, right: 150, top: 8, bottom: 22, h: 130 };
+const V = { left: 44, right: 190, top: 8, bottom: 22, h: 130 };
 function renderVChart() {
-  const svg = document.getElementById("v-chart");
-  const W = document.getElementById("v-wrap").clientWidth;
+  const svg = document.getElementById("v-chart"), W = document.getElementById("v-wrap").clientWidth;
   if (!S.meta || !W) return;
   const H = V.h, pw = W - V.left - V.right, ph = H - V.top - V.bottom;
-  const mins = Math.ceil(S.meta.duration / 60) || 1;
-  const bw = pw / mins;
+  const mins = Math.ceil(S.meta.duration / 60) || 1, bw = pw / mins;
   const maxV = Math.max(10, ...M.perMin.map(r => r[0] + r[1] + r[2]));
   const nice = maxV <= 50 ? Math.ceil(maxV / 10) * 10 : maxV <= 500 ? Math.ceil(maxV / 100) * 100 : Math.ceil(maxV / 500) * 500;
   const y = v => V.top + ph - (v / nice) * ph;
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("width", W); svg.setAttribute("height", H);
   const parts = [];
   for (const v of [0, nice / 2, nice]) {
-    parts.push(`<line x1="${V.left}" x2="${V.left + pw}" y1="${y(v)}" y2="${y(v)}" stroke="${css("--grid")}" stroke-width="1"/>`);
+    parts.push(`<line x1="${V.left}" x2="${V.left + pw}" y1="${y(v)}" y2="${y(v)}" stroke="${css("--grid")}"/>`);
     parts.push(`<text x="${V.left - 8}" y="${y(v) + 4}" text-anchor="end">${num(v)}</text>`);
   }
-  const cols = [css("--sev-low"), css("--sev-mid"), css("--sev-high")];
-  const barW = Math.max(1, Math.min(24, bw - 2));
+  const cols = [css("--sev-low"), css("--sev-mid"), css("--sev-high")], barW = Math.max(1, Math.min(24, bw - 2));
   M.perMin.forEach((r, m) => {
-    let base = 0;
-    const cx = V.left + m * bw + (bw - barW) / 2;
+    let base = 0; const cx = V.left + m * bw + (bw - barW) / 2;
+    const topBand = r[2] ? 2 : r[1] ? 1 : 0;
     r.forEach((v, b) => {
       if (!v) return;
-      const y0 = y(base), y1 = y(base + v);
-      const hgt = Math.max(0, y0 - y1 - (base ? 2 : 0));  // 2 px d'écart entre segments empilés
-      parts.push(`<rect x="${cx}" y="${y1}" width="${barW}" height="${hgt}" rx="${b === 2 || (b === 1 && !r[2]) || (b === 0 && !r[1] && !r[2]) ? 2 : 0}" fill="${cols[b]}"/>`);
+      const y0 = y(base), y1 = y(base + v), hgt = Math.max(0, y0 - y1 - (base ? 2 : 0));
+      parts.push(`<rect x="${cx}" y="${y1}" width="${barW}" height="${hgt}" rx="${b === topBand ? 2 : 0}" fill="${cols[b]}"/>`);
       base += v;
     });
     parts.push(`<rect x="${V.left + m * bw}" y="${V.top}" width="${bw}" height="${ph}" fill="transparent" data-min="${m}"/>`);
   });
-  parts.push(`<line x1="${V.left}" x2="${V.left + pw}" y1="${y(0)}" y2="${y(0)}" stroke="${css("--axis")}" stroke-width="1"/>`);
+  parts.push(`<line x1="${V.left}" x2="${V.left + pw}" y1="${y(0)}" y2="${y(0)}" stroke="${css("--axis")}"/>`);
   const xs = t => V.left + (t / S.meta.duration) * pw;
-  parts.push(`<line x1="${xs(S.clock)}" x2="${xs(S.clock)}" y1="${V.top}" y2="${V.top + ph}" stroke="${css("--accent")}" stroke-width="1" opacity=".6"/>`);
+  parts.push(`<line x1="${xs(S.clock)}" x2="${xs(S.clock)}" y1="${V.top}" y2="${V.top + ph}" stroke="${css("--accent")}" opacity=".6"/>`);
   svg.innerHTML = parts.join("");
 }
-function renderVLegend() {
-  const box = document.getElementById("v-legend"); box.textContent = "";
+function renderLegends() {
+  const p = document.getElementById("p-legend"); p.textContent = "";
+  for (const a of ["monitor", "investigate", "contain"]) {
+    const k = el("span", "key"); const l = el("span", "line"); l.style.background = `var(${ACTIONS[a].color})`;
+    k.appendChild(l); k.appendChild(document.createTextNode(ACTIONS[a].label)); p.appendChild(k);
+  }
+  const v = document.getElementById("v-legend"); v.textContent = "";
   [["--sev-low", "niveau 0–6"], ["--sev-mid", "niveau 7–11"], ["--sev-high", "niveau 12–15"]].forEach(([c, t]) => {
-    const k = el("span", "key"); const r = el("span", "rect"); r.style.background = `var(${c})`;
-    k.appendChild(r); k.appendChild(document.createTextNode(t)); box.appendChild(k);
+    const k = el("span", "key"); const r = el("span", "sw"); r.style.background = `var(${c})`; r.style.borderColor = `var(${c})`; r.style.borderRadius = "2px";
+    k.appendChild(r); k.appendChild(document.createTextNode(t)); v.appendChild(k);
   });
 }
-
 function sparkline(hist) {
-  const W = 92, H = 26;
-  if (!hist.length || !S.meta) return "";
-  const t0 = hist[0].t, t1 = Math.max(S.clock, hist[hist.length - 1].t + 1);
-  const x = t => 2 + ((t - t0) / Math.max(1, t1 - t0)) * (W - 8);
-  const y = p => 2 + (1 - p) * (H - 4);
+  const W = 92, H = 26; if (!hist.length) return "";
+  const t0 = hist[0].t, t1 = Math.max(S.clock, hist.at(-1).t + 1);
+  const x = t => 2 + ((t - t0) / Math.max(1, t1 - t0)) * (W - 8), y = p => 2 + (1 - p) * (H - 4);
   let d = "", prev = null;
   for (const h of hist) { d += prev === null ? `M${x(h.t)},${y(h.p)}` : `H${x(h.t)}V${y(h.p)}`; prev = h.p; }
   d += `H${x(t1)}`;
-  const last = hist[hist.length - 1];
-  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="${d}" fill="none" stroke="${actionColor(last.action)}" stroke-width="2" stroke-linejoin="round"/>`
-    + `<circle cx="${x(t1)}" cy="${y(last.p)}" r="3" fill="${actionColor(last.action)}"/></svg>`;
+  const last = hist.at(-1);
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="${d}" fill="none" stroke="${actionColor(last.action)}" stroke-width="2" stroke-linejoin="round"/><circle cx="${x(t1)}" cy="${y(last.p)}" r="3" fill="${actionColor(last.action)}"/></svg>`;
 }
-
 function renderClusters() {
-  const box = document.getElementById("clusters");
-  const judged = liveClusters().filter(c => c.last);
+  const box = document.getElementById("clusters"); const scroll = box.scrollTop;
+  const jd = judged();
   const byRank = (a, b) => ACTIONS[b.last.action].rank - ACTIONS[a.last.action].rank || b.last.p - a.last.p;
-  const urgent = judged.filter(c => c.last.action !== "monitor").sort(byRank);
-  const monitored = judged.filter(c => c.last.action === "monitor").sort(byRank);
-  const scroll = box.scrollTop;
+  const urgent = jd.filter(c => c.last.action !== "monitor").sort(byRank), monitored = jd.filter(c => c.last.action === "monitor").sort(byRank);
   box.textContent = "";
-  if (!judged.length) { box.appendChild(el("div", "empty", "Aucun cluster jugeable pour l'instant : le correlator regroupe les premières alertes.")); return; }
+  if (!jd.length) { box.appendChild(el("div", "empty", "Aucun cluster jugeable pour l'instant.")); return; }
   let group = null;
   for (const c of urgent) {
-    const a = c.last.action === "escalate" ? "contain" : c.last.action;
-    if (a !== group) { group = a; const g = el("div", "group-title"); g.appendChild(badge(c.last.action)); g.appendChild(document.createTextNode(urgent.filter(x => x.last.action === c.last.action).length + " cluster(s)")); box.appendChild(g); }
+    if (c.last.action !== group) {
+      group = c.last.action;
+      const g = el("div", "group-title"); g.appendChild(badge(group));
+      g.appendChild(document.createTextNode(plural(urgent.filter(x => x.last.action === group).length, "cluster"))); box.appendChild(g);
+    }
     box.appendChild(clusterCard(c));
   }
-  if (!urgent.length) box.appendChild(el("div", "empty", "Rien à investiguer pour l'instant : tous les clusters jugés restent sous le seuil."));
   if (monitored.length) {
     const det = el("details", "monitored");
     det.open = !!(S.selected && monitored.some(c => c.id === S.selected));
-    det.appendChild(el("summary", null, monitored.length + " cluster(s) en surveillance (sous le seuil d'investigation)"));
+    det.appendChild(el("summary", null, plural(monitored.length, "cluster") + " en surveillance (bruit de fond)"));
     const ul = el("ul");
     for (const c of monitored) {
-      const li = el("li", null, c.id.replace("clu-", "#") + " · " + pct(c.last.p) + " · " + c.alerts + " alertes");
-      li.style.cursor = "pointer"; li.addEventListener("click", () => select(c.id));
-      if (S.selected === c.id) li.style.fontWeight = "650";
-      ul.appendChild(li);
+      const li = el("li", null, `${c.id} · ${pct(c.last.p)} · ${c.alerts} alertes · ${c.last.dominant}`);
+      li.style.cursor = "pointer"; li.addEventListener("click", () => select(c.id)); ul.appendChild(li);
     }
     det.appendChild(ul); box.appendChild(det);
   }
   box.scrollTop = scroll;
-  M.newIds.clear();
 }
-
 function clusterCard(c) {
   const e = c.last;
-  const card = el("div", "ccard" + (S.selected === c.id ? " selected" : "") + (M.newIds.has(c.id) ? " fresh" : ""));
-  card.tabIndex = 0;
-  card.setAttribute("role", "button");
+  const card = el("div", "ccard" + (S.selected === c.id ? " selected" : ""));
+  card.tabIndex = 0; card.setAttribute("role", "button");
   card.addEventListener("click", () => select(c.id));
-  card.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(c.id); } });
-  const r1 = el("div", "row1");
-  const left = el("div"); left.appendChild(el("span", "id", c.id)); left.appendChild(el("span", "ver", "  v" + e.version + (c.closed ? " · fermé" : "")));
+  const r1 = el("div", "row1"); const left = el("div", "nm");
+  left.appendChild(letterEl(c)); left.appendChild(el("span", null, e.name));
   r1.appendChild(left); r1.appendChild(badge(e.action)); card.appendChild(r1);
-  const r2 = el("div", "row2");
-  const pbox = el("div"); pbox.appendChild(el("div", "prob", pct(e.p)));
-  pbox.appendChild(el("div", "meta", "P calibrée" + (e.p_raw !== undefined ? " (brute " + pct(e.p_raw) + ")" : "")));
-  r2.appendChild(pbox);
-  const sp = el("div"); sp.innerHTML = sparkline(c.history); r2.appendChild(sp);
-  card.appendChild(r2);
-  const meter = el("div", "meter"); const fill = el("div"); fill.style.width = (e.p * 100) + "%"; fill.style.background = actionColor(e.action);
-  meter.appendChild(fill); card.appendChild(meter);
-  card.appendChild(el("div", "meta", [...c.hosts].join(", ") + " · " + num(c.alerts) + " alertes · " + e.window_minutes + " min · niveau max " + e.max_level));
-  if (e.mitre && e.mitre.length) card.appendChild(el("div", "mitre", "MITRE : " + e.mitre.join(" → ")));
-  if (e.stage) card.appendChild(el("div", "meta", "Étape la plus avancée selon le modèle : " + e.stage.replace("_", " ")));
-  const just = el("div", "just", "Justification : " + e.justification); just.title = e.justification;
-  card.appendChild(just);
-  if (e.truth !== undefined) card.appendChild(el("div", "truth " + (e.truth ? "yes" : "no"), e.truth ? "✓ Vérité : contient des actions de l'attaquant" : "Vérité : aucun indicateur d'attaque (bruit)"));
+  card.appendChild(el("div", "ver", c.id + " · v" + e.version + (c.closed ? " · fermé" : "")));
+  const r2 = el("div", "row2"); const pb = el("div");
+  pb.appendChild(el("div", "prob", pct(e.p))); pb.appendChild(el("div", "meta", "P calibrée (brute " + pct(e.p_raw) + ")" + (e.priority != null ? " · priorité " + dec2(e.priority) + "/4" : "")));
+  r2.appendChild(pb); const sp = el("div"); sp.innerHTML = sparkline(c.history); r2.appendChild(sp); card.appendChild(r2);
+  const meter = el("div", "meter"); const f = el("div"); f.style.width = e.p * 100 + "%"; f.style.background = actionColor(e.action); meter.appendChild(f); card.appendChild(meter);
+  card.appendChild(el("div", "meta", [...c.hostCounts.keys()].join(", ") + " · " + num(c.alerts) + " alertes · " + e.window_minutes + " min · niveau max " + e.max_level + (e.flags.length ? " · drapeaux : " + e.flags.join(", ") : "")));
+  if (e.mitre && e.mitre.length) card.appendChild(el("div", "mitre", "MITRE " + e.mitre.join(" → ")));
+  if (e.stage) card.appendChild(el("div", "meta", "Étape la plus avancée (modèle) : " + e.stage.replace(/_/g, " ") + " · règle dominante : " + e.dominant));
+  const j = el("div", "just", "Justification : " + e.justification); j.title = e.justification; card.appendChild(j);
+  if (e.truth !== undefined) card.appendChild(el("div", "truth " + (e.truth ? "yes" : "no"), e.truth ? "✓ Vérité : actions de l'attaquant" : "✗ Vérité : aucun indicateur"));
   return card;
 }
-
 function renderFeed() {
   const ul = document.getElementById("feed");
-  if (!M.newFeed && !S.forceFeed && ul.childElementCount) return;
-  S.forceFeed = false;
+  if (!M.newFeed && !S.force && ul.childElementCount) return;
   ul.textContent = "";
   const cols = [css("--sev-low"), css("--sev-mid"), css("--sev-high")];
-  M.feed.forEach((a, i) => {
-    const li = el("li", i < Math.min(M.newFeed, 3) ? "new" : "");
+  for (const a of M.feed) {
+    const li = el("li");
     li.appendChild(el("span", "time", fmtT(a.t)));
     const lvl = el("span", "lvl"); const sw = el("i"); sw.style.background = cols[band(a.level)];
     lvl.appendChild(sw); lvl.appendChild(document.createTextNode(a.level)); li.appendChild(lvl);
@@ -660,96 +1051,120 @@ function renderFeed() {
     const d = el("span", "desc", a.desc.replace(/\\\\/g, "\\")); d.title = d.textContent; li.appendChild(d);
     li.appendChild(el("span", "cl", a.cluster.replace("clu-", "#")));
     ul.appendChild(li);
-  });
+  }
   M.newFeed = 0;
 }
-
 function renderLog() {
   const ul = document.getElementById("log");
-  if (!M.newLog && !S.forceLog && ul.childElementCount) return;
-  S.forceLog = false;
+  if (!M.newLog && !S.force && ul.childElementCount) return;
   ul.textContent = "";
   if (!M.log.length) { ul.appendChild(el("li", "empty", "Pas encore de décision.")); return; }
-  M.log.forEach((e, i) => {
-    const li = el("li", i < Math.min(M.newLog, 3) ? "new" : "");
+  for (const e of M.log) {
+    const li = el("li");
     li.appendChild(el("span", "time", fmtT(e.t)));
-    li.appendChild(el("span", null, e.cluster.replace("clu-", "#") + " v" + e.version));
+    li.appendChild(el("span", "cid", e.cluster.replace("clu-", "#") + " v" + e.version));
     li.appendChild(el("span", "p", pct(e.p)));
     const ch = el("span", "change");
     if (e.prev && e.prev !== e.action) { ch.appendChild(badge(e.prev)); ch.appendChild(document.createTextNode("→")); }
     ch.appendChild(badge(e.action));
-    if (!e.prev) ch.appendChild(document.createTextNode("première décision"));
+    ch.appendChild(document.createTextNode(e.name));
     li.appendChild(ch);
-    li.style.cursor = "pointer"; li.addEventListener("click", () => select(e.cluster));
+    li.addEventListener("click", () => select(e.cluster));
     ul.appendChild(li);
-  });
+  }
   M.newLog = 0;
 }
 
+// ===========================================================================
+// Interactions
+// ===========================================================================
 function select(id) {
-  S.selected = S.selected === id ? null : id;
-  S.forceLists = true; S.dirty = true;
-  render();
+  if (!id) return;
+  let c = M.clusters.get(id);
+  while (c && c.mergedInto) c = M.clusters.get(c.mergedInto);
+  const target = c ? c.id : id;
+  S.selected = S.selected === target ? null : target;
+  rerender();
 }
-
-// ---------------------------------------------------------------------------
-// Infobulles (survol et clavier)
-// ---------------------------------------------------------------------------
 function placeTip(tip, wrap, px, py) {
   tip.style.display = "block";
-  const w = tip.offsetWidth, W = wrap.clientWidth;
-  tip.style.left = Math.min(Math.max(0, px + 14), W - w) + "px";
+  const w = tip.offsetWidth;
+  tip.style.left = Math.min(Math.max(wrap.scrollLeft, px + 14), wrap.scrollLeft + wrap.clientWidth - w) + "px";
   tip.style.top = Math.max(0, py - 10) + "px";
 }
+function tipRows(tip, title, rows) {
+  tip.textContent = ""; tip.appendChild(el("div", "t", title));
+  rows.filter(Boolean).forEach(r => tip.appendChild(el("div", "r", r)));
+}
 function setupTooltips() {
-  const pwrap = document.getElementById("p-wrap"), ptip = document.getElementById("p-tip");
-  const psvg = document.getElementById("p-chart");
-  psvg.addEventListener("pointermove", ev => {
+  const gw = document.getElementById("g-wrap"), gt = document.getElementById("g-tip"), gs = document.getElementById("graph");
+  gs.addEventListener("pointermove", ev => {
+    const g = ev.target.closest("[data-cluster],[data-host],[data-noise]");
+    if (!g || !S.meta) { gt.style.display = "none"; return; }
+    if (g.dataset.cluster) {
+      const c = M.clusters.get(g.dataset.cluster), e = c.last;
+      tipRows(gt, label(c), [
+        `${pct(e.p)} · ${ACTIONS[e.action].label}${e.doubt ? " · Jev hésite" : ""}`,
+        `${num(c.alerts)} alertes · ${[...c.hostCounts.entries()].map(([h, n]) => h + " (" + num(n) + ")").join(", ")}`,
+        e.summary.length ? "Techniques : " + e.summary.join(", ") : "",
+        c.users.size ? "Comptes : " + [...c.users].slice(0, 4).join(", ") : "",
+        "Cliquer pour isoler cette activité",
+      ]);
+    } else if (g.dataset.host) {
+      const h = g.dataset.host, info = M.hosts.get(h);
+      const acts = threats().filter(c => c.hostCounts.has(h)).map(c => c.letter + " " + c.last.name);
+      tipRows(gt, "Machine " + h, [`${num(info.alerts)} alertes Wazuh`, info.users.size ? "Comptes vus : " + [...info.users].slice(0, 5).join(", ") : "",
+        acts.length ? "Activités : " + acts.slice(0, 4).join(" ; ") + (acts.length > 4 ? " ; …" : "") : "Aucune activité suspecte"]);
+    } else {
+      const h = g.dataset.noise;
+      const list = judged().filter(c => c.last.kind === "noise" && c.hostCounts.has(h));
+      const top = {}; list.forEach(c => top[c.last.dominant] = (top[c.last.dominant] || 0) + 1);
+      tipRows(gt, `${plural(list.length, "groupe")} de bruit sur ${h}`, ["Jugés bénins par Jev (sous " + pct(S.meta.investigate_min) + ")",
+        ...Object.entries(top).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([d, n]) => n + " × " + d)]);
+    }
+    const rb = gw.getBoundingClientRect();
+    placeTip(gt, gw, ev.clientX - rb.left + gw.scrollLeft, ev.clientY - rb.top);
+  });
+  gs.addEventListener("pointerleave", () => gt.style.display = "none");
+  gs.addEventListener("click", ev => { const g = ev.target.closest("[data-cluster]"); if (g) select(g.dataset.cluster); });
+
+  const pw = document.getElementById("p-wrap"), pt = document.getElementById("p-tip"), ps = document.getElementById("p-chart");
+  ps.addEventListener("pointermove", ev => {
     if (!S.meta) return;
-    const r = psvg.getBoundingClientRect();
-    const pw = r.width - P.left - P.right;
-    const t = ((ev.clientX - r.left - P.left) / pw) * S.meta.duration;
-    if (t < 0 || t > S.meta.duration) { ptip.style.display = "none"; return; }
-    const rows = [...M.clusters.values()]
-      .filter(c => c.history.length && c.history[0].t <= t && t <= Math.max(endT(c), c.history.at(-1).t))
-      .map(c => ({ c, p: pAt(c, t), a: [...c.history].reverse().find(h => h.t <= t).action }))
-      .sort((a, b) => b.p - a.p).slice(0, 6);
-    ptip.textContent = "";
-    ptip.appendChild(el("div", "t", fmtT(t) + (rows.length ? " · clusters les plus suspects" : " · aucun cluster jugé")));
+    const r = ps.getBoundingClientRect(), t = ((ev.clientX - r.left - P.left) / (r.width - P.left - P.right)) * S.meta.duration;
+    if (t < 0 || t > S.meta.duration) { pt.style.display = "none"; return; }
+    const rows = [...M.clusters.values()].filter(c => c.history.length && c.history[0].t <= t && t <= Math.max(endT(c), c.history.at(-1).t))
+      .map(c => ({ c, p: pAt(c, t), a: [...c.history].reverse().find(h => h.t <= t).action })).sort((a, b) => b.p - a.p).slice(0, 6);
+    pt.textContent = ""; pt.appendChild(el("div", "t", fmtT(t)));
     for (const r0 of rows) {
       const row = el("div", "row"); const k = el("i", "k"); k.style.background = actionColor(r0.a);
-      row.appendChild(k); row.appendChild(el("b", null, pct(r0.p)));
-      const merged = r0.c.mergedInto && t >= r0.c.mergedT - 1 ? " · fusionné → " + r0.c.mergedInto.replace("clu-", "#") : "";
-      row.appendChild(el("span", null, r0.c.id + " · " + ACTIONS[r0.a].label + " · " + [...r0.c.hosts].join(", ") + merged));
-      ptip.appendChild(row);
+      row.appendChild(k); row.appendChild(el("b", null, pct(r0.p))); row.appendChild(el("span", null, label(r0.c))); pt.appendChild(row);
     }
-    placeTip(ptip, pwrap, ev.clientX - pwrap.getBoundingClientRect().left, ev.clientY - pwrap.getBoundingClientRect().top);
+    const rb = pw.getBoundingClientRect(); placeTip(pt, pw, ev.clientX - rb.left, ev.clientY - rb.top);
   });
-  psvg.addEventListener("pointerleave", () => ptip.style.display = "none");
-  psvg.addEventListener("click", ev => { const id = ev.target.getAttribute("data-id"); if (id) select(id); });
+  ps.addEventListener("pointerleave", () => pt.style.display = "none");
+  ps.addEventListener("click", ev => { const id = ev.target.getAttribute("data-id"); if (id) select(id); });
 
-  const vwrap = document.getElementById("v-wrap"), vtip = document.getElementById("v-tip");
-  const vsvg = document.getElementById("v-chart");
-  vsvg.addEventListener("pointermove", ev => {
+  const vw = document.getElementById("v-wrap"), vt = document.getElementById("v-tip"), vs = document.getElementById("v-chart");
+  vs.addEventListener("pointermove", ev => {
     const m = ev.target.getAttribute("data-min");
-    if (m === null) { vtip.style.display = "none"; return; }
+    if (m === null) { vt.style.display = "none"; return; }
     const r = M.perMin[+m] || [0, 0, 0];
-    vtip.textContent = "";
-    vtip.appendChild(el("div", "t", "Minute " + m + " → " + (+m + 1)));
-    [["--sev-high", "niveau 12–15", r[2]], ["--sev-mid", "niveau 7–11", r[1]], ["--sev-low", "niveau 0–6", r[0]]].forEach(([c, t, v]) => {
-      const row = el("div", "row"); const k = el("i", "k"); k.style.background = `var(${c})`; k.style.height = "8px"; k.style.width = "8px";
-      row.appendChild(k); row.appendChild(el("b", null, num(v))); row.appendChild(el("span", null, t)); vtip.appendChild(row);
-    });
-    const rb = vwrap.getBoundingClientRect();
-    placeTip(vtip, vwrap, ev.clientX - rb.left, ev.clientY - rb.top);
+    tipRows(vt, `Minute ${m} → ${+m + 1}`, [`${num(r[2])} de niveau 12–15`, `${num(r[1])} de niveau 7–11`, `${num(r[0])} de niveau 0–6`]);
+    const rb = vw.getBoundingClientRect(); placeTip(vt, vw, ev.clientX - rb.left, ev.clientY - rb.top);
   });
-  vsvg.addEventListener("pointerleave", () => vtip.style.display = "none");
+  vs.addEventListener("pointerleave", () => vt.style.display = "none");
 }
-
-// ---------------------------------------------------------------------------
-// Commandes
-// ---------------------------------------------------------------------------
 function updatePlay() { document.getElementById("play").textContent = S.playing ? "❚❚ Pause" : "▶ Lecture"; }
+function showView(view) {
+  S.view = view;
+  document.getElementById("view-overview").hidden = view !== "overview";
+  document.getElementById("view-analyst").hidden = view !== "analyst";
+  document.getElementById("tab-overview").setAttribute("aria-selected", view === "overview");
+  document.getElementById("tab-analyst").setAttribute("aria-selected", view === "analyst");
+  try { history.replaceState(null, "", view === "analyst" ? "#analyste" : "#"); } catch (e) { /* cadre restreint */ }
+  rerender();
+}
 function setupControls() {
   const seg = document.getElementById("speeds");
   for (const s of SPEEDS) {
@@ -758,53 +1173,54 @@ function setupControls() {
     seg.appendChild(b);
   }
   document.getElementById("play").addEventListener("click", () => {
-    if (S.ended) { seek(0); }
-    S.playing = !S.playing || S.ended; S.ended = false; updatePlay();
+    if (S.ended) { seek(0); S.playing = true; } else S.playing = !S.playing;
+    updatePlay();
   });
   document.getElementById("restart").addEventListener("click", () => { seek(0); S.playing = true; updatePlay(); });
   const truth = document.getElementById("truth");
   truth.addEventListener("click", () => {
     const on = !document.body.classList.contains("show-truth");
     document.body.classList.toggle("show-truth", on); truth.setAttribute("aria-pressed", on);
+    rerender();
   });
   document.getElementById("theme").addEventListener("click", () => {
     const root = document.documentElement;
     const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
     root.dataset.theme = dark ? "light" : "dark";
     try { localStorage.setItem("jevsoc-theme", root.dataset.theme); } catch (e) { /* stockage indisponible */ }
-    S.forceLists = true; S.dirty = true; render();
+    rerender();
   });
+  document.getElementById("tab-overview").addEventListener("click", () => showView("overview"));
+  document.getElementById("tab-analyst").addEventListener("click", () => showView("analyst"));
   const prog = document.getElementById("progress");
-  const seekFromEvent = ev => {
+  prog.addEventListener("click", ev => {
     if (S.mode !== "recorded" || !S.meta) return;
     const r = prog.getBoundingClientRect();
-    seek(Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)) * S.meta.duration);
-    render();
-  };
-  prog.addEventListener("click", seekFromEvent);
+    seek(Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)) * S.meta.duration); render();
+  });
   prog.addEventListener("keydown", ev => {
     if (S.mode !== "recorded" || !S.meta) return;
-    if (ev.key === "ArrowRight") { seek(Math.min(S.meta.duration, S.clock + 60)); render(); }
-    if (ev.key === "ArrowLeft") { seek(Math.max(0, S.clock - 60)); render(); }
+    const d = ev.key === "ArrowRight" ? 60 : ev.key === "ArrowLeft" ? -60 : 0;
+    if (d) { ev.preventDefault(); seek(Math.max(0, Math.min(S.meta.duration, S.clock + d))); render(); }
   });
   document.addEventListener("keydown", ev => { if (ev.key === " " && ev.target === document.body) { ev.preventDefault(); document.getElementById("play").click(); } });
-  new ResizeObserver(() => { S.dirty = true; render(); }).observe(document.getElementById("p-wrap"));
+  new ResizeObserver(() => rerender()).observe(document.querySelector(".wrap"));
 }
 
-// ---------------------------------------------------------------------------
+// ===========================================================================
 // Démarrage : enregistrement embarqué, sinon serveur (enregistrement ou direct)
-// ---------------------------------------------------------------------------
+// ===========================================================================
 (async function main() {
   try { const t = localStorage.getItem("jevsoc-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) { /* stockage indisponible */ }
-  renderPLegend(); renderVLegend(); setupControls(); setupTooltips();
+  renderGraphLegend(); renderLegends(); setupControls(); setupTooltips();
+  if (location.hash === "#analyste") showView("analyst");
   const embedded = document.getElementById("recording");
   if (embedded) { startRecorded(JSON.parse(embedded.textContent)); return; }
   try {
     const cfg = await (await fetch("config.json")).json();
-    if (cfg.mode === "live") startLive();
-    else startRecorded(await (await fetch("recording.json")).json());
+    if (cfg.mode === "live") startLive(); else startRecorded(await (await fetch("recording.json")).json());
   } catch (e) {
-    document.getElementById("scenario").textContent = "Impossible de charger les données : lancer « python scripts/demo.py serve --recording … ».";
+    document.getElementById("headline").textContent = "Données introuvables : lancer « python scripts/demo.py serve --recording … »";
   }
 })();
 </script>
