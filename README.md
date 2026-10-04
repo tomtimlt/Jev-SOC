@@ -14,7 +14,8 @@ Il écrit seulement des décisions à côté du workflow existant.
 |---|---|
 | 1. Squelette, `MockBackend`, harnais `eval.py` | fait (+ `JevBackend`) |
 | 2. Jeu de clusters labellisés | fait sur **vraies alertes Wazuh** : AIT-ADS (Linux/web) + émulation APT29 de MITRE (Windows/Sysmon) rejouée dans un vrai Wazuh |
-| 3. Sérialiseur + correlator | version hors ligne faite (entités Linux et Windows/Sysmon) ; version incrémentale (démo live) à faire |
+| 3. Sérialiseur + correlator | faits : hors ligne (évaluation) et incrémental (flux, décisions versionnées) ; entités Linux et Windows/Sysmon |
+| Démo live | faite : rejeu de vraies alertes Wazuh, page visuelle, mode enregistré ou direct (`demo/`) |
 | Politique de décision + calibration | faites, réglées sur la validation AIT uniquement |
 | 4. `LayaBackend` zero-shot | à faire |
 | 5 à 9 | à faire |
@@ -65,10 +66,40 @@ Le choix du backend, les seuils et les paramètres de corrélation sont dans
 [`config/config.yaml`](config/config.yaml). Les questions typées sont dans
 `config/questions.v2.json` ; la version (`v2`) est enregistrée dans chaque décision.
 
+## Démo live
+
+Rejoue de **vraies alertes Wazuh** (émulation APT29, jour 1 : 2 704 alertes en 31 min) dans le
+correlator incrémental ; le modèle re-juge chaque cluster quand il évolue, et la page montre la
+courbe de soupçon, l'entonnoir alertes → clusters → à traiter, le flux d'alertes et le journal des
+décisions versionnées.
+
+```bash
+# Le plus sûr pour une soutenance : page autonome, aucun réseau ni serveur (double-clic)
+open demo/apt29_day1_standalone.html
+
+# Rejouer l'enregistrement via le serveur (vitesse réglable dans la page)
+python scripts/demo.py serve --recording demo/recordings/apt29_day1.json     # http://127.0.0.1:8000
+
+# Vrai direct : le moteur tourne et appelle Jev au fil de l'eau (TYPESAFE_API_KEY requise)
+python scripts/demo.py serve --live --backend jev --speed 20 --truth apt29 \
+    --alerts data/raw/apt29/alerts/day1_wazuh.ndjson --history data/raw/apt29/alerts/day2_wazuh.ndjson
+
+# Refaire l'enregistrement (81 appels à Jev, ~20 s), puis la page autonome
+python scripts/demo.py record --backend jev --truth apt29 --alerts ... --history ... \
+    --out demo/recordings/apt29_day1.json
+python scripts/demo.py build --recording demo/recordings/apt29_day1.json --out demo/apt29_day1_standalone.html
+```
+
+Ce que montre l'enregistrement : la chaîne principale (`#0004`, SCRANTON puis NASHUA) passe à
+77 % dès la 1re minute puis à 98 % (contenir) ; le mouvement latéral vers NASHUA (`#0025`) monte
+de 33 % à 93 % en deux minutes avant de fusionner avec la chaîne ; 30 clusters de bruit restent en
+surveillance. Le bouton « Vérité terrain » affiche, pour chaque cluster, s'il contient des actions
+de l'attaquant (indicateurs du plan d'émulation).
+
 ## Tests
 
 ```bash
-pytest          # 46 tests, aucun appel réseau
+pytest          # 51 tests, aucun appel réseau
 ruff check . && ruff format --check .
 ```
 
@@ -99,23 +130,26 @@ ruff check . && ruff format --check .
 Jev attrape toutes les chaînes (y compris les escalades de privilèges discrètes de niveau 4)
 sans fausse alerte, mais ne signale pas les scans seuls ; la règle de volume les couvre.
 
-### Windows : émulation APT29 de MITRE rejouée dans Wazuh (81 clusters, 24 attaques dont 11 chaînes)
+### Windows : émulation APT29 de MITRE rejouée dans Wazuh (55 clusters, 9 attaques dont 5 chaînes)
 
 Jeu **jamais utilisé pour régler quoi que ce soit** : autre OS, autre attaquant, autres outils.
 
 | Méthode | Chaînes multi-étapes : rappel | Toutes attaques : précision / rappel / F1 | AUC |
 |---|---|---|---|
-| Jev calibré (P ≥ 0,14) | **11 / 11** | 0,68 / 0,96 / **0,79** | **0,94** |
-| Système complet (Jev + volume) | 11 / 11 | 0,50 / 0,96 / 0,66 | 0,77 |
-| `max_level >= 7` | 10 / 11 | 0,29 / 0,79 / 0,42 | 0,70 |
-| `volume >= 65` | 4 / 11 | 0,25 / 0,17 / 0,20 | 0,45 |
+| Jev calibré (P ≥ 0,14) | **5 / 5** | 0,60 / 1,00 / **0,75** | **0,97** |
+| Système complet (Jev + volume) | 5 / 5 | 0,36 / 1,00 / 0,53 | 0,83 |
+| `max_level >= 7` | 4 / 5 | 0,15 / 0,78 / 0,25 | 0,66 |
+| `volume >= 65` | 2 / 5 | 0,23 / 0,33 / 0,27 | 0,58 |
 
-- La **calibration apprise sur Linux tient sur Windows** : ECE 0,30 brut → 0,05 calibré.
+- La **calibration apprise sur Linux tient sur Windows** : ECE 0,30 brut → 0,08 calibré.
+- La **corrélation regroupe bien l'attaque** : 367 des 372 alertes de l'attaquant du jour 1 et
+  les 98 du jour 2 sont dans des clusters jugés (jour 2 : toute l'attaque en un seul cluster).
+  D'où peu de clusters d'attaque : 9, ce qui reste un petit échantillon.
 - La **règle de volume ne se transporte pas** : sur Windows, les rafales viennent de fausses
   alertes de Wazuh (« Explorer accessed by RuntimeBroker », des centaines par minute), pas
   de scans. Elle coûte de la précision au système complet.
-- Faux positifs de Jev sur Windows : surtout des accès de `lsass` / `svchost` à Explorer et des
-  scripts PowerShell de l'agent Azure ; aucun réglage n'a été fait pour les éviter.
+- Faux positifs de Jev sur Windows (6 sur 46 bénins) : surtout des accès de `lsass` / `svchost`
+  à Explorer et des scripts PowerShell ; aucun réglage n'a été fait pour les éviter.
 
 ### Recalibration (validation AIT, 3 chaînes + 116 non-chaînes)
 
@@ -133,7 +167,11 @@ entre le bénin le plus suspect (0,02) et la chaîne la moins suspecte (0,26).
   WMI (attaque ratée par la liste d'indicateurs) et des commandes de l'agent Azure (faussement
   labellisées attaque). Les règles corrigées sont générales, mais n'examiner que les désaccords
   favorise le modèle : ces chiffres APT29 sont donc un peu optimistes.
-- Limites : peu de chaînes (5 + 11), labels par indicateurs ou fenêtres de temps, une seule
+- **Corrélation Windows corrigée** pendant la construction de la démo : le processus CIBLE d'un
+  accès (Sysmon 10, ex. `explorer.exe`) ne relie plus les alertes (il fusionnait l'attaquant et
+  le bruit Windows), et les hubs sont appris sur l'autre journée (historique). Les chiffres APT29
+  ci-dessus sont ceux d'après la correction.
+- Limites : peu de chaînes (5 + 5), labels par indicateurs ou fenêtres de temps, une seule
   famille d'attaque par environnement, probabilités calibrées à la prévalence de l'échantillon
   (bien plus élevée que dans un vrai SOC).
 
@@ -162,10 +200,11 @@ Jev sépare l'attaque, le jumeau bénin SCCM et l'attaque déguisée (AUC 1,0) a
 ```
 config/        config.yaml, questions.v2.json, entity_denylist.yaml
 src/jevsoc/    models.py (Decision, Derived), metrics.py, config.py, policy.py, calibration.py,
-               collector.py, correlator.py, serializer.py, backends/ (base, mock, jev)
+               collector.py, correlator.py, serializer.py, live.py, backends/ (base, mock, jev)
                + modules en attente : store, reports, api, backends/laya
 scripts/       make_variants.py, build_ait_dataset.py, build_apt29_dataset.py, wazuh_replay.py,
-               prefix_curve.py
+               prefix_curve.py, demo.py (démo live : record / serve / build)
+demo/          index.html (page de démo), recordings/ (journaux d'événements), page autonome
 data/          ablation/, ait/, apt29/, splits.yaml, README.md (sources, licences, labellisation)
 eval/          eval.py (harnais), calibrate.py (calibration + seuils sur validation), results/ (local)
 tests/         tests pytest + une réponse Jev réelle enregistrée (fixtures/)

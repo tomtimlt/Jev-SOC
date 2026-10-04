@@ -9,11 +9,16 @@ Protection contre les entités "hub" (manager Wazuh, DNS, SYSTEM...) qui reliera
   - présence permanente : une entité vue dans plus de `hub_ratio` des heures ne crée aucun lien ;
   - durée et taille max : un cluster trop long ou trop gros est découpé en tranches de temps.
 
-Version hors ligne (tout le fichier d'un coup), suffisante pour l'évaluation. La version
-incrémentale (cluster ouvert re-décidé à chaque nouvelle alerte) viendra pour la démo live.
+Deux versions qui appliquent la même règle de liaison :
+  - `correlate` : hors ligne, tout un fichier d'un coup (évaluation) ;
+  - `IncrementalCorrelator` : en flux, une alerte à la fois (production, démo live). Un cluster
+    ouvert s'étend ou fusionne avec un autre quand une alerte les relie ; chaque changement
+    incrémente sa version, pour que la décision soit re-prise et versionnée, jamais écrasée.
 """
 
 from __future__ import annotations
+
+from dataclasses import dataclass, field
 
 from jevsoc.collector import Alert
 
@@ -76,10 +81,18 @@ def correlate(
     denylist: set[str] | None = None,
     max_cluster_size: int = 5000,
     hub_bucket_minutes: float = 60,
+    hubs: set[str] | None = None,
 ) -> list[list[Alert]]:
-    """Renvoie les clusters, chacun trié par temps, eux-mêmes triés par début."""
+    """Renvoie les clusters, chacun trié par temps, eux-mêmes triés par début.
+
+    `hubs` : hubs appris ailleurs (sur l'historique). Sinon, calculés sur ces alertes mêmes, ce
+    qui n'est sûr que pour des enregistrements longs où l'attaque ne couvre qu'une petite partie
+    du temps : sur un enregistrement court occupé par l'attaque, les indices de l'attaquant
+    deviendraient eux-mêmes des hubs.
+    """
     alerts = sorted(alerts, key=lambda a: a.ts)
-    hubs = hub_entities(alerts, hub_ratio, {d.lower() for d in denylist or set()}, hub_bucket_minutes)
+    if hubs is None:
+        hubs = hub_entities(alerts, hub_ratio, {d.lower() for d in denylist or set()}, hub_bucket_minutes)
     uf = UnionFind(len(alerts))
     last_seen: dict[str, int] = {}  # entité -> index de la dernière alerte qui la portait
     max_gap_s = max_gap_minutes * 60
@@ -113,3 +126,102 @@ def is_judgeable(cluster: list[Alert], min_alerts: int = 3, min_entities: int = 
     hosts = {a.host for a in cluster if a.host}
     users = {u for a in cluster for u in a.users}
     return len(cluster) >= 2 and (len(hosts) >= min_entities or len(users) >= min_entities)
+
+
+@dataclass
+class LiveCluster:
+    """Cluster ouvert en flux. `version` augmente à chaque alerte ajoutée ou fusion."""
+
+    id: str
+    alerts: list[Alert] = field(default_factory=list)
+    version: int = 0
+    closed: bool = False
+    merged_into: str | None = None
+    continues: str | None = None  # cluster précédent, si celui-ci prolonge une fenêtre pleine
+
+    @property
+    def start(self) -> float:
+        return self.alerts[0].ts
+
+    @property
+    def last(self) -> float:
+        return self.alerts[-1].ts
+
+
+class IncrementalCorrelator:
+    """Corrélation en flux : même règle que `correlate`, une alerte à la fois.
+
+    Une alerte rejoint le cluster de la dernière alerte qui partageait une de ses entités, si
+    celle-ci date de moins de `max_gap_minutes`. Si elle relie plusieurs clusters ouverts, ils
+    fusionnent dans le plus ancien. Un cluster sans nouvelle alerte depuis `max_gap_minutes`
+    est fermé. Les hubs ne peuvent pas être calculés sur le futur : on les fournit, appris sur
+    l'historique (ex. la journée précédente) avec `hub_entities`.
+    """
+
+    def __init__(
+        self,
+        max_gap_minutes: float = 60,
+        window_minutes: float = 240,
+        hubs: set[str] | None = None,
+        max_cluster_size: int = 100000,
+    ):
+        self.max_gap_s = max_gap_minutes * 60
+        self.window_s = window_minutes * 60
+        self.hubs = hubs or set()
+        self.max_cluster_size = max_cluster_size
+        self.clusters: dict[str, LiveCluster] = {}
+        self._entity: dict[str, tuple[str, float]] = {}  # entité -> (cluster, heure de dernière vue)
+        self._counter = 0
+
+    def _new(self, continues: str | None = None) -> LiveCluster:
+        self._counter += 1
+        cluster = LiveCluster(id=f"clu-{self._counter:04d}", continues=continues)
+        self.clusters[cluster.id] = cluster
+        return cluster
+
+    def _resolve(self, cluster_id: str) -> LiveCluster:
+        cluster = self.clusters[cluster_id]
+        while cluster.merged_into:  # un cluster absorbé renvoie vers celui qui l'a absorbé
+            cluster = self.clusters[cluster.merged_into]
+        return cluster
+
+    def close_stale(self, now: float) -> list[LiveCluster]:
+        """Ferme les clusters inactifs depuis plus de max_gap. Renvoie ceux qui viennent de fermer."""
+        closed = []
+        for cluster in self.clusters.values():
+            if not cluster.closed and not cluster.merged_into and now - cluster.last > self.max_gap_s:
+                cluster.closed = True
+                closed.append(cluster)
+        return closed
+
+    def add(self, alert: Alert) -> tuple[LiveCluster, list[LiveCluster]]:
+        """Ajoute une alerte (dans l'ordre du temps). Renvoie (cluster mis à jour, clusters absorbés)."""
+        entities = [e for e in alert.entities() if e not in self.hubs]
+        candidates: dict[str, LiveCluster] = {}
+        for entity in entities:
+            seen = self._entity.get(entity)
+            if seen and alert.ts - seen[1] <= self.max_gap_s:
+                cluster = self._resolve(seen[0])
+                if not cluster.closed:
+                    candidates[cluster.id] = cluster
+
+        absorbed = []
+        if not candidates:
+            target = self._new()
+        else:
+            ordered = sorted(candidates.values(), key=lambda c: c.start)
+            target = ordered[0]
+            for other in ordered[1:]:  # l'alerte relie plusieurs clusters : ils fusionnent
+                target.alerts = sorted(target.alerts + other.alerts, key=lambda a: a.ts)
+                other.merged_into = target.id
+                absorbed.append(other)
+            # Fenêtre ou taille dépassée : un nouveau cluster prend le relais (lien "continues").
+            if alert.ts - target.start > self.window_s or len(target.alerts) >= self.max_cluster_size:
+                target.closed = True
+                target = self._new(continues=target.id)
+
+        target.alerts.append(alert)
+        target.version += 1
+        for entity in entities:
+            self._entity[entity] = (target.id, alert.ts)
+        return target, absorbed

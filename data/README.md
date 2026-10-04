@@ -4,7 +4,7 @@
 |---|---|---|
 | `ablation/` | 3 scénarios × 4 variantes (attaque, jumeau bénin SCCM, attaque déguisée) | écrits à la main, `scripts/make_variants.py` |
 | `ait/` | 53 clusters d'attaque + 240 clusters bénins échantillonnés, issus de vraies alertes Wazuh | AIT-ADS, `scripts/build_ait_dataset.py` |
-| `apt29/` | 24 clusters d'attaque (11 multi-étapes) + 57 bénins, alertes Wazuh Windows/Sysmon | émulation APT29 (OTRF) rejouée dans Wazuh, `scripts/build_apt29_dataset.py` |
+| `apt29/` | 9 clusters d'attaque (5 multi-étapes) + 46 bénins, alertes Wazuh Windows/Sysmon | émulation APT29 (OTRF) rejouée dans Wazuh, `scripts/build_apt29_dataset.py` |
 | `raw/` | jeux bruts téléchargés (ignoré par git, 2,8 Go) | voir ci-dessous |
 | `splits.yaml` | split train / validation / test, fixé **par scénario** | – |
 
@@ -81,5 +81,7 @@ alertes (Wazuh 4.14.8, règles officielles, aucune règle ajoutée).
 - Cluster « attack » = au moins une alerte indicatrice ; « multi-étapes » = au moins 2 étapes.
 - Deux règles ont été corrigées après examen des désaccords avec Jev (voir README) : les
   résultats APT29 sont donc légèrement optimistes.
+- Hubs appris sur l'autre journée (historique) : sur un enregistrement occupé par l'attaque, les
+  indices de l'attaquant passeraient sinon pour des entités de fond.
 - Enregistrements courts (~35 min) et denses : pas d'estimation de faux positifs par jour.
 - Tout APT29 est en **test** : aucun seuil n'y est réglé.

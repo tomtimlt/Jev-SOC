@@ -31,13 +31,17 @@ import yaml
 
 from jevsoc.collector import normalize_wazuh
 from jevsoc.config import load_config, resolve
-from jevsoc.correlator import correlate, is_judgeable
+from jevsoc.correlator import correlate, hub_entities, is_judgeable
 from jevsoc.serializer import serialize
 
 ROOT = Path(__file__).resolve().parents[1]
 ALERTS = ROOT / "data" / "raw" / "apt29" / "alerts"
 DAYS = {"apt29_day1": "day1_wazuh.ndjson", "apt29_day2": "day2_wazuh.ndjson"}
 HUB_BUCKET_MINUTES = 3  # enregistrements de ~35 min : tranches courtes pour repérer les hubs
+# Hubs appris sur l'AUTRE journée (l'historique), jamais sur la journée jugée : l'attaque occupe
+# tout l'enregistrement, donc ses propres indices (compte pbeesly, sdelete...) passeraient pour
+# des entités de fond et ses liens seraient coupés.
+HISTORY = {"apt29_day1": "apt29_day2", "apt29_day2": "apt29_day1"}
 
 # Artefacts bénins connus, exclus AVANT de chercher des indicateurs.
 BENIGN = [
@@ -91,6 +95,15 @@ def alert_stages(raw: dict) -> list[str]:
     return [stage for stage, pattern in INDICATORS if re.search(pattern, text)]
 
 
+def history_hubs(name: str, corr: dict, denylist: set[str]) -> set[str]:
+    """Hubs appris sur la journée d'historique associée."""
+    with open(ALERTS / DAYS[HISTORY[name]], encoding="utf-8") as handle:
+        history = [normalize_wazuh(json.loads(line)) for line in handle]
+    return hub_entities(
+        history, corr["hub_entity_max_ratio"], {d.lower() for d in denylist}, HUB_BUCKET_MINUTES
+    )
+
+
 def build_day(name: str, corr: dict, denylist: set[str], benign_n: int, rng: random.Random):
     raws = [json.loads(line) for line in open(ALERTS / DAYS[name], encoding="utf-8")]
     stages_by_id = {raw["id"]: alert_stages(raw) for raw in raws}
@@ -102,7 +115,7 @@ def build_day(name: str, corr: dict, denylist: set[str], benign_n: int, rng: ran
         corr["hub_entity_max_ratio"],
         denylist,
         corr["max_cluster_size"],
-        hub_bucket_minutes=HUB_BUCKET_MINUTES,
+        hubs=history_hubs(name, corr, denylist),
     )
     judgeable = [c for c in clusters if is_judgeable(c, corr["min_alerts"], corr["min_entities"])]
 

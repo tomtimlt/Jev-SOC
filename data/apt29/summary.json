@@ -2,23 +2,23 @@
   "apt29_day1": {
     "alerts": 2704,
     "attack_alerts": 372,
-    "attack_alerts_in_judged_clusters": 336,
-    "clusters": 467,
-    "judgeable_clusters": 30,
-    "attack_clusters": 13,
-    "multistage_clusters": 8,
-    "benign_clusters": 17,
+    "attack_alerts_in_judged_clusters": 367,
+    "clusters": 98,
+    "judgeable_clusters": 40,
+    "attack_clusters": 8,
+    "multistage_clusters": 4,
+    "benign_clusters": 32,
     "days": null
   },
   "apt29_day2": {
     "alerts": 6752,
     "attack_alerts": 98,
-    "attack_alerts_in_judged_clusters": 29,
-    "clusters": 3121,
-    "judgeable_clusters": 59,
-    "attack_clusters": 11,
-    "multistage_clusters": 3,
-    "benign_clusters": 48,
+    "attack_alerts_in_judged_clusters": 98,
+    "clusters": 24,
+    "judgeable_clusters": 15,
+    "attack_clusters": 1,
+    "multistage_clusters": 1,
+    "benign_clusters": 14,
     "days": null
   }
 }

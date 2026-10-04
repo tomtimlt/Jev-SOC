@@ -97,17 +97,13 @@ def normalize_wazuh(raw: dict) -> Alert:
         if win.get(key):
             users.append(_win_path(win[key]).split("\\")[-1].lower())  # "DMEVALS\pbeesly" -> "pbeesly"
     users = [u for u in users if u and not u.endswith("$")]  # comptes machine : bruit
+    # Seuls les processus ACTEURS relient des alertes (le processus, son parent, la source d'un
+    # accès). La CIBLE d'un accès (Sysmon 10 : explorer.exe, lsass.exe) est touchée par tout le
+    # monde, attaquant comme bruit Windows : la prendre comme lien fusionne les deux.
     processes = sorted(
         {
             win[key].strip("{}").lower()
-            for key in (
-                "processGuid",
-                "parentProcessGuid",
-                "sourceProcessGUID",
-                "sourceProcessGuid",
-                "targetProcessGUID",
-                "targetProcessGuid",
-            )
+            for key in ("processGuid", "parentProcessGuid", "sourceProcessGUID", "sourceProcessGuid")
             if win.get(key)
         }
     )

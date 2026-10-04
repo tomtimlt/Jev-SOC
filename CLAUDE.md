@@ -274,8 +274,15 @@ jev-soc/
 - Calibration : `eval/calibrate.py` (Platt, cible = chaîne multi-étapes) sur la validation AIT,
   écrit `config/calibration.yaml` ; la politique l'applique avant les seuils. Seuils actuels :
   sophisticated_low 0,14 (échelle calibrée), volume_min_alerts 65, règle de priorité désactivée.
+- Corrélation en flux : `IncrementalCorrelator` (même partition que `correlate`, testé) ; moteur
+  `jevsoc.live.LiveEngine` : re-décision seulement si la forme du state change, au plus toutes les
+  20 s simulées. Le processus CIBLE d'un accès Sysmon ne relie pas les alertes ; hubs appris sur
+  l'historique (autre journée), jamais sur le flux jugé.
+- Démo : `scripts/demo.py` record / serve (--recording ou --live, SSE, stdlib) / build (page
+  autonome). Page : `demo/index.html`, sans dépendance externe ; enregistrement Jev réel dans
+  `demo/recordings/apt29_day1.json`.
 - Résultats (README) : AIT test 5/5 chaînes à 0 FP/jour ; APT29 (Windows, jamais réglé dessus)
-  11/11 chaînes, F1 0,79 vs 0,42 pour max_level >= 7, ECE 0,30 -> 0,05 ; la règle de volume aide
-  sur Linux (scans) mais nuit sur Windows (rafales de fausses alertes Wazuh).
-- Prochaines tâches : correlator incrémental + démo live (rejoueur + page web), `LayaBackend`,
-  règle de volume moins naïve (ex. rafales d'une même règle bruyante connue), plus de chaînes.
+  9/9 attaques dont 5/5 chaînes, F1 0,75 vs 0,25 pour max_level >= 7, ECE 0,30 -> 0,08 ; la
+  règle de volume aide sur Linux (scans) mais nuit sur Windows.
+- Prochaines tâches : `LayaBackend`, règle de volume moins naïve, stockage jev-decisions-* et
+  dashboards Wazuh, plus de chaînes.
