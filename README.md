@@ -69,23 +69,28 @@ Le choix du backend, les seuils et les paramètres de corrélation sont dans
 ## Démo live
 
 Rejoue de **vraies alertes Wazuh** (émulation APT29, jour 1 : 2 704 alertes en 31 min) dans le
-correlator incrémental ; le modèle re-juge chaque activité quand elle évolue. La page a deux
-onglets :
+correlator incrémental ; le modèle re-juge chaque activité quand elle évolue.
 
-- **Vue d'ensemble** (pour comprendre le projet d'un coup d'œil) : horloge numérique de l'attaque
-  (heure UTC réelle du rejeu + temps écoulé), bandeau de situation (« Attaque en cours », nom de
-  l'attaque, action à faire), entonnoir alertes → activités corrélées → jugées par Jev → à traiter,
-  **graphe de propagation** (machines, activités reliées aux machines qu'elles touchent, flèches
-  machine → machine avec l'heure et la technique, « ? » là où Jev hésite), cartes des attaques
-  nommées et fil des moments clés.
-- **Vue analyste SOC** : courbes P(attaque) par cluster avec les seuils, volume par niveau, cartes
-  détaillées (probabilités brute/calibrée, chaîne MITRE, justification déterministe), flux
-  d'alertes et journal des décisions versionnées.
+![Démo Jev-SOC : 2 704 alertes Wazuh, 3 intrusions et 9 doutes, graphe d'attaque et chronologie](docs/demo.png)
 
-Les noms (« Intrusion SCRANTON → NASHUA », « Activité suspecte sur NASHUA ») sont construits par
-règles fixes dans `src/jevsoc/naming.py` (machines dans l'ordre, techniques MITRE des règles Wazuh,
-action recommandée) : aucun texte généré. « Jev hésite » = P calibrée entre le seuil
-d'investigation et celui de confinement.
+Console sombre, un seul thème (choisi : c'est l'environnement d'un SOC). Deux onglets :
+
+- **Vue d'ensemble** : entonnoir alertes → activités corrélées → jugées par Jev → intrusions /
+  doutes ; panneau d'incident avec **horloge 7 segments** (heure UTC réelle du rejeu), activité
+  suivie, jauge de confiance avec les deux seuils, **kill chain** des tactiques MITRE observées
+  (plus le stade estimé par Jev, affiché à part) et action recommandée ; **graphe d'attaque**
+  (machines, lettres des activités, flèches de propagation « heure · technique », comptes partagés
+  qui ont servi à corréler, bulle « ? » là où Jev hésite) ; **chronologie par machine** (alertes
+  colorées selon l'activité qu'elles ont rejointe, repérages, propagation, tête de lecture
+  cliquable) ; fil des moments clés ; méthode et contrôle par la vérité terrain.
+- **Vue analyste SOC** : courbes P(attaque) par activité avec les seuils, cartes détaillées
+  (probabilités brute/calibrée, chaîne MITRE, justification déterministe), flux d'alertes et
+  journal des décisions versionnées.
+
+Les noms (« Intrusion SCRANTON → NASHUA », « Activité suspecte sur NASHUA ») et les tactiques
+sont calculés par règles fixes dans `src/jevsoc/naming.py` (machines dans l'ordre, techniques
+MITRE des règles Wazuh, action recommandée) : aucun texte généré. « Jev hésite » = P calibrée
+entre le seuil d'investigation et celui de confinement.
 
 ```bash
 # Le plus sûr pour une soutenance : page autonome, aucun réseau ni serveur (double-clic)
@@ -112,10 +117,15 @@ reconstitué le mouvement latéral. En fin de rejeu : 3 intrusions (2 réelles, 
 indicateur d'attaque.
 Le bouton « Vérité terrain » affiche ces verdicts (indicateurs du plan d'émulation).
 
+**Reproductibilité :** l'API Jev n'est pas strictement déterministe. Un second enregistrement
+complet (mêmes alertes, mêmes 81 décisions) donne **exactement les mêmes actions**, avec des
+probabilités qui varient d'au plus 0,04 (brutes) et 0,08 (calibrées). D'où l'intérêt de figer un
+enregistrement pour la démo.
+
 ## Tests
 
 ```bash
-pytest          # 55 tests, aucun appel réseau
+pytest          # 56 tests, aucun appel réseau
 ruff check . && ruff format --check .
 ```
 

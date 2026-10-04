@@ -280,9 +280,12 @@ jev-soc/
   l'historique (autre journée), jamais sur le flux jugé.
 - Démo : `scripts/demo.py` record / serve (--recording ou --live, SSE, stdlib) / build (page
   autonome). Page : `demo/index.html`, sans dépendance externe ; enregistrement Jev réel dans
-  `demo/recordings/apt29_day1.json`. Deux onglets : vue d'ensemble (horloge 7 segments, situation,
-  graphe de propagation, attaques nommées, fil) et vue analyste SOC. Noms et `kind`
-  (attack/suspect/noise) déterministes : `src/jevsoc/naming.py` ; `doubt` = P entre les seuils.
+  `demo/recordings/apt29_day1.json`. Console sombre (thème unique choisi), polices Geist (Google
+  Fonts, repli système hors ligne). Vue d'ensemble : entonnoir, incident (horloge 7 segments, jauge,
+  kill chain), graphe d'attaque (machines, lettres, propagation, comptes partagés, « ? »),
+  chronologie par machine ; vue analyste SOC. Noms, `kind` (attack/suspect/noise) et `tactics`
+  déterministes : `src/jevsoc/naming.py` ; `doubt` = P entre les seuils. L'API Jev varie un peu
+  d'un appel à l'autre (mêmes actions, P ±0,08) : la démo rejoue un enregistrement figé.
 - Résultats (README) : AIT test 5/5 chaînes à 0 FP/jour ; APT29 (Windows, jamais réglé dessus)
   9/9 attaques dont 5/5 chaînes, F1 0,75 vs 0,25 pour max_level >= 7, ECE 0,30 -> 0,08 ; la
   règle de volume aide sur Linux (scans) mais nuit sur Windows.

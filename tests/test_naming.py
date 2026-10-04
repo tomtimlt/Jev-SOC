@@ -1,7 +1,7 @@
 """Noms simples des clusters : déterministes, lisibles, conformes à l'action recommandée."""
 
 from jevsoc.collector import Alert
-from jevsoc.naming import name_cluster, technique_label, technique_summary
+from jevsoc.naming import name_cluster, tactics_of, technique_label, technique_summary
 
 
 def alert(i, host, mitre=(), desc="Regle Wazuh"):
@@ -36,3 +36,9 @@ def test_dominant_rule_shortens_windows_paths():
     desc = "File dropped: C:\\\\Users\\\\x\\\\AppData\\\\evil.exe, by malware"
     named = name_cluster([alert(1, "H", desc=desc), alert(2, "H", desc=desc)], "monitor")
     assert named["dominant"] == "File dropped: evil.exe"
+
+
+def test_tactics_follow_kill_chain_order_whatever_the_alert_order():
+    alerts = [alert(1, "A", ["T1021.002"]), alert(2, "A", ["T1059.001", "T9999"]), alert(3, "A", ["T1055"])]
+    assert tactics_of(alerts) == ["execution", "evasion", "lateral"]
+    assert tactics_of([alert(4, "A")]) == []

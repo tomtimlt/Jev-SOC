@@ -58,6 +58,82 @@ TECHNIQUE_LABELS = {
 }
 
 
+# Tactiques ATT&CK dans l'ordre de la kill chain (clés courtes reprises par la page de démo), et
+# tactique principale de chaque technique. Une technique à plusieurs tactiques est rangée sous
+# celle qu'elle sert le plus souvent (ex. T1055, injection de code -> évasion des défenses).
+TACTIC_ORDER = [
+    "execution",
+    "persistence",
+    "privesc",
+    "evasion",
+    "credential",
+    "discovery",
+    "lateral",
+    "collection",
+    "c2",
+    "exfil",
+    "impact",
+]
+TECHNIQUE_TACTICS = {
+    "T1059": "execution",
+    "T1047": "execution",
+    "T1569": "execution",
+    "T1204": "execution",
+    "T1106": "execution",
+    "T1053": "persistence",
+    "T1543": "persistence",
+    "T1547": "persistence",
+    "T1546": "persistence",
+    "T1136": "persistence",
+    "T1505": "persistence",
+    "T1574": "persistence",
+    "T1548": "privesc",
+    "T1134": "privesc",
+    "T1055": "evasion",
+    "T1112": "evasion",
+    "T1070": "evasion",
+    "T1140": "evasion",
+    "T1218": "evasion",
+    "T1036": "evasion",
+    "T1027": "evasion",
+    "T1078": "evasion",
+    "T1003": "credential",
+    "T1555": "credential",
+    "T1552": "credential",
+    "T1110": "credential",
+    "T1056": "credential",
+    "T1018": "discovery",
+    "T1087": "discovery",
+    "T1046": "discovery",
+    "T1082": "discovery",
+    "T1057": "discovery",
+    "T1083": "discovery",
+    "T1016": "discovery",
+    "T1021": "lateral",
+    "T1570": "lateral",
+    "T1560": "collection",
+    "T1113": "collection",
+    "T1115": "collection",
+    "T1005": "collection",
+    "T1105": "c2",
+    "T1071": "c2",
+    "T1102": "c2",
+    "T1090": "c2",
+    "T1041": "exfil",
+    "T1048": "exfil",
+    "T1567": "exfil",
+    "T1529": "impact",
+    "T1486": "impact",
+    "T1490": "impact",
+}
+
+
+def tactics_of(alerts: list[Alert]) -> list[str]:
+    """Tactiques observées (toutes les alertes du cluster), dans l'ordre de la kill chain."""
+    seen = {TECHNIQUE_TACTICS.get(t.split(".")[0]) for alert in alerts for t in alert.mitre}
+    return [tactic for tactic in TACTIC_ORDER if tactic in seen]
+
+
 def technique_label(technique: str) -> str | None:
     """Libellé de la technique la plus précise connue (T1021.006 -> WinRM, T1021.999 -> connexion)."""
     if technique in TECHNIQUE_LABELS:

@@ -4,231 +4,268 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Jev-SOC Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap">
 <style>
-/* Mise en page « salle de crise » : en haut l'heure et la situation, au centre le graphe de
-   propagation, en dessous les attaques nommées. Les détails SOC sont dans un second onglet. */
+/* Console SOC sombre, assumée (un seul thème, choisi) : les écrans de SOC sont sombres et le rouge
+   / orange des statuts y ressort. Hors ligne, les polices retombent sur celles du système. */
 :root {
-  color-scheme: light;
-  --page: #f4f4f1; --surface: #fcfcfb; --surface-2: #efeee9;
-  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
-  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
-  --accent: #2a78d6;
-  --sev-low: #86b6ef; --sev-mid: #2a78d6; --sev-high: #104281;
-  --st-monitor: #898781; --st-investigate: #fab219; --st-escalate: #ec835a; --st-contain: #d03b3b; --st-good: #0ca30c;
-  --track: #e4e3dd; --on-status: #0b0b0b;
-  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
-    --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
-    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
-    --accent: #3987e5;
-    --sev-low: #184f95; --sev-mid: #3987e5; --sev-high: #9ec5f4;
-    --track: #2c2c2a;
-  }
-}
-:root[data-theme="dark"] {
   color-scheme: dark;
-  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
-  --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
-  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
-  --accent: #3987e5;
-  --sev-low: #184f95; --sev-mid: #3987e5; --sev-high: #9ec5f4;
-  --track: #2c2c2a;
+  --bg: #07090c; --glow-bg: rgba(76,141,255,.09); --dot: rgba(150,170,200,.09);
+  --panel: #0d1117; --panel-2: #131a23; --panel-3: #18212c;
+  --line: #1c2531; --line-2: #2a3545;
+  --text: #e9eef5; --text-2: #9eabbd; --text-3: #66748a;
+  --accent: #4c8dff; --accent-soft: rgba(76,141,255,.14);
+  --crit: #ff4f5e; --crit-soft: rgba(255,79,94,.15);
+  --warn: #ffb224; --warn-soft: rgba(255,178,36,.14);
+  --esc: #ff8a4c; --ok: #2ecf7f;
+  --noise: #364254; --noise-2: #5d6b7f;
+  --on-status: #0b0d12;
+  --font: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
-body { background: var(--page); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+body { background: radial-gradient(1100px 520px at 78% -12%, var(--glow-bg), transparent 62%), var(--bg);
+  background-color: var(--bg); color: var(--text); font: 14px/1.45 var(--font); -webkit-font-smoothing: antialiased; }
 button { font: inherit; color: inherit; }
-.wrap { max-width: 1480px; margin: 0 auto; padding: 16px; }
-h1, h2, h3 { text-wrap: balance; }
+.wrap { max-width: 1600px; margin: 0 auto; padding: 16px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mono { font-family: var(--mono); }
+.eyebrow { font: 600 10.5px/1.3 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--text-3); }
+@keyframes pulse { 50% { opacity: .35; } }
+@keyframes halo { 0% { opacity: .30; } 50% { opacity: .08; } 100% { opacity: .30; } }
 
-/* En-tête */
-header.top { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; justify-content: space-between; }
-.brand { min-width: 0; }
-.brand h1 { font-size: 20px; margin: 0; letter-spacing: -0.01em; }
-.brand p { margin: 2px 0 0; color: var(--ink-2); font-size: 13px; max-width: 760px; }
+/* ---------- En-tête ---------- */
+.top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; }
+.brand { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.logo { width: 36px; height: 36px; flex: none; }
+.wordmark { font: 700 16px/1.1 var(--mono); letter-spacing: .1em; }
+.wordmark span { color: var(--accent); }
+.tag { color: var(--text-2); font-size: 12.5px; }
 .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
-  border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); font-size: 12px; white-space: nowrap; }
-.chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
-.chip.live .dot { background: var(--st-contain); animation: pulse 1.4s infinite; }
-@keyframes pulse { 50% { opacity: .3; } }
-.btn { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 6px 10px;
-  cursor: pointer; min-height: 32px; display: inline-flex; align-items: center; gap: 6px; }
-.btn:hover { background: var(--surface-2); }
-.btn[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-.seg button { border: 0; background: var(--surface); padding: 6px 10px; cursor: pointer; min-height: 32px; }
-.seg button + button { border-left: 1px solid var(--border); }
-.seg button[aria-pressed="true"] { background: var(--surface-2); font-weight: 650; }
+.chip { display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--line-2);
+  background: var(--panel); color: var(--text-2); font: 500 11.5px var(--mono); letter-spacing: .03em; white-space: nowrap; }
+.chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--noise-2); }
+.chip.live .dot { background: var(--crit); animation: pulse 1.4s infinite; }
+.btn { border: 1px solid var(--line-2); background: var(--panel-2); border-radius: 8px; padding: 6px 11px; cursor: pointer;
+  min-height: 32px; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; font-size: 13px; }
+.btn:hover { border-color: var(--text-3); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: var(--panel-2); padding: 6px 10px; cursor: pointer; min-height: 32px; font: 500 12px var(--mono); color: var(--text-2); }
+.seg button + button { border-left: 1px solid var(--line-2); }
+.seg button[aria-pressed="true"] { background: var(--panel-3); color: var(--text); }
 
-/* Onglets */
-.tabs { display: flex; gap: 4px; margin: 14px 0 0; border-bottom: 1px solid var(--grid); }
-.tab { border: 0; background: none; padding: 8px 14px; cursor: pointer; color: var(--ink-2); border-bottom: 2px solid transparent; margin-bottom: -1px; font-weight: 600; }
-.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tabs { display: flex; gap: 2px; margin-top: 14px; border-bottom: 1px solid var(--line); }
+.tab { border: 0; background: none; padding: 9px 14px; cursor: pointer; color: var(--text-3); font-weight: 600; font-size: 13px;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
 
-/* Barre de progression cliquable */
-.progress { position: relative; height: 22px; cursor: pointer; margin-top: 10px; }
-.progress .rail { position: absolute; left: 0; right: 0; top: 9px; height: 4px; border-radius: 2px; background: var(--track); }
-.progress .fill { position: absolute; left: 0; top: 9px; height: 4px; border-radius: 2px; background: var(--accent); }
-.progress .mark { position: absolute; top: 4px; width: 3px; height: 14px; border-radius: 1px; background: var(--st-contain); }
-.progress .knob { position: absolute; top: 4px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--surface); }
+.progress { position: relative; height: 20px; cursor: pointer; margin-top: 8px; }
+.progress .rail { position: absolute; left: 0; right: 0; top: 8px; height: 4px; border-radius: 2px; background: var(--line); }
+.progress .fill { position: absolute; left: 0; top: 8px; height: 4px; border-radius: 2px; background: var(--accent); }
+.progress .mark { position: absolute; top: 3px; width: 3px; height: 14px; border-radius: 2px; background: var(--crit); }
+.progress .knob { position: absolute; top: 3px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--text); box-shadow: 0 0 0 3px var(--accent); }
 
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; min-width: 0; }
-.card h2 { font-size: 15px; margin: 0; }
-.card .subtitle { color: var(--ink-2); font-size: 12.5px; margin: 2px 0 10px; }
-.eyebrow { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 650; }
+/* ---------- Entonnoir : l'accroche ---------- */
+.funnel { display: flex; flex-wrap: wrap; margin-top: 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); overflow: hidden; }
+.f-step { flex: 1 1 150px; padding: 12px 20px; position: relative; min-width: 0; }
+.f-step + .f-step { border-left: 1px solid var(--line); }
+.f-step.flow::after { content: ""; position: absolute; right: -7px; top: 50%; width: 12px; height: 12px; border-top: 1px solid var(--line-2);
+  border-right: 1px solid var(--line-2); background: var(--panel); transform: translateY(-50%) rotate(45deg); z-index: 1; }
+.f-n { font: 600 28px/1.15 var(--mono); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.f-l { color: var(--text-2); font-size: 12.5px; }
+.f-step.crit .f-n { color: var(--crit); }
+.f-step.warn .f-n { color: var(--warn); }
+.f-step.ratio { background: var(--accent-soft); }
+.f-step.ratio .f-n { color: var(--accent); }
 
-/* Vue d'ensemble : rangée du haut */
-.hero { display: grid; grid-template-columns: 320px minmax(0, 1fr) 290px; gap: 12px; margin-top: 12px; }
-.clock-card { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
-.clock { width: 100%; height: auto; max-width: 290px; }
-.elapsed { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.elapsed b { color: var(--ink); font-size: 17px; }
+/* ---------- Panneaux ---------- */
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; min-width: 0; }
+.panel-head { padding: 14px 16px 12px; display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: flex-end; justify-content: space-between; }
+.panel h2 { font-size: 14.5px; font-weight: 600; letter-spacing: .005em; }
+.panel .sub { color: var(--text-2); font-size: 12.5px; margin: 3px 0 0; max-width: 90ch; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--text-2); font-size: 12px; }
+.legend .key { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.legend .sw { width: 11px; height: 11px; border-radius: 3px; }
+.legend .ln { width: 16px; height: 0; border-top: 2px solid; }
+.legend .q { width: 15px; height: 15px; border-radius: 50%; background: var(--warn); color: var(--on-status); font: 700 10px var(--mono); display: inline-grid; place-items: center; }
 
-.situation { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
-.level { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding: 4px 12px; border-radius: 999px;
-  font-weight: 750; letter-spacing: .06em; font-size: 12px; text-transform: uppercase; border: 1px solid var(--border); background: var(--surface-2); }
-.level i { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
-.level.attack { background: color-mix(in srgb, var(--st-contain) 16%, var(--surface)); border-color: var(--st-contain); }
-.level.attack i { background: var(--st-contain); animation: pulse 1.2s infinite; }
-.level.suspect { background: color-mix(in srgb, var(--st-investigate) 18%, var(--surface)); border-color: var(--st-investigate); }
-.level.suspect i { background: var(--st-investigate); }
-.level.watch i { background: var(--st-good); }
-.headline { font-size: 28px; line-height: 1.15; font-weight: 750; letter-spacing: -0.02em; margin: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.headline .letter { width: 32px; height: 32px; font-size: 17px; }
-.situation .why { color: var(--ink-2); font-size: 14px; margin: 0; max-width: 75ch; }
-.situation .todo { font-size: 14px; margin: 0; font-weight: 650; }
-.latest { font-size: 13px; color: var(--ink-2); border-top: 1px solid var(--grid); padding-top: 8px; display: flex; gap: 8px; align-items: baseline; }
-.latest .time { font-family: var(--mono); color: var(--muted); flex: none; }
+.main { display: grid; grid-template-columns: 372px minmax(0, 1fr); gap: 12px; margin-top: 12px; }
 
-.pipeline { display: flex; flex-direction: column; }
-.step { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 6px 0; }
-.step + .step { border-top: 1px dashed var(--grid); }
-.step .what { color: var(--ink-2); font-size: 12px; }
-.step .what b { color: var(--ink); display: block; font-size: 13px; }
-.step .n { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; text-align: right; font-variant-numeric: tabular-nums; }
-.step .split { font-size: 12px; color: var(--ink-2); text-align: right; white-space: nowrap; }
+/* Incident : horloge + activité suivie */
+.incident { padding: 16px; display: flex; flex-direction: column; gap: 12px; position: relative; overflow: hidden; --status-c: var(--text-3); }
+.incident::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 2px; background: var(--status-c); }
+.inc-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.status { display: inline-flex; gap: 8px; align-items: center; font: 600 11.5px var(--mono); letter-spacing: .1em; text-transform: uppercase;
+  padding: 5px 10px; border-radius: 6px; border: 1px solid var(--status-c); color: var(--status-c);
+  background: color-mix(in srgb, var(--status-c) 12%, transparent); }
+.status i { width: 8px; height: 8px; border-radius: 50%; background: var(--status-c); }
+.status.live i { animation: pulse 1.2s infinite; }
+.inc-mode { font: 500 11px var(--mono); color: var(--text-3); letter-spacing: .08em; }
+.clock { width: 100%; height: auto; filter: drop-shadow(0 0 14px color-mix(in srgb, var(--status-c) 40%, transparent)); }
+.clock-sub { display: flex; justify-content: space-between; gap: 8px; font: 12px var(--mono); color: var(--text-2); margin-top: 6px; }
+.clock-sub b { color: var(--text); font-weight: 600; }
+.sep { height: 1px; background: var(--line); }
+.focus { display: flex; flex-direction: column; gap: 12px; }
+.focus-title { display: flex; gap: 10px; align-items: flex-start; font-size: 20px; font-weight: 650; line-height: 1.2; letter-spacing: -.01em; }
+.focus-title .letter { width: 30px; height: 30px; font-size: 15px; }
+.focus-path { font: 12px var(--mono); color: var(--text-2); margin-top: -6px; overflow-wrap: anywhere; }
+.gauge-head { display: flex; justify-content: space-between; align-items: baseline; }
+.gauge-p { font: 600 34px/1 var(--mono); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.gauge svg, .kc svg { width: 100%; height: auto; }
+.doubt-box { border: 1px dashed var(--warn); background: var(--warn-soft); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; display: flex; gap: 9px; align-items: flex-start; }
+.qmark { width: 18px; height: 18px; border-radius: 50%; background: var(--warn); color: var(--on-status); font: 700 11px var(--mono); display: grid; place-items: center; flex: none; }
+.kc-cap { font-size: 12.5px; color: var(--text); margin-top: 6px; }
+.kc-stage { font: 11.5px var(--mono); color: var(--text-3); margin-top: 3px; }
+.action { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); --ac: var(--noise-2); }
+.action .ic { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; flex: none; color: var(--ac); background: color-mix(in srgb, var(--ac) 18%, transparent); }
+.action .ic svg { width: 15px; height: 15px; }
+.action b { display: block; font-size: 13.5px; }
+.action span { color: var(--text-2); font-size: 12.5px; }
+.focus-foot { font: 11.5px var(--mono); color: var(--text-3); }
+.calm { color: var(--text-2); font-size: 13.5px; }
+.calm b { display: block; color: var(--text); font-size: 20px; font-weight: 650; margin-bottom: 4px; }
 
-/* Graphe de propagation */
-.graph-card { margin-top: 12px; }
-.graph-head { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: flex-end; justify-content: space-between; margin-bottom: 6px; }
-.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--ink-2); font-size: 12px; }
-.legend .key { display: inline-flex; align-items: center; gap: 6px; }
-.legend .sw { width: 12px; height: 12px; border-radius: 4px; border: 2px solid; background: var(--surface); }
-.legend .line { width: 16px; height: 2px; border-radius: 1px; }
-.legend .q { width: 15px; height: 15px; border-radius: 50%; background: var(--st-investigate); color: var(--on-status); font-size: 10px; font-weight: 800; display: inline-grid; place-items: center; }
-.chart-wrap { position: relative; }
-.graph-scroll { overflow-x: auto; }
+.letter { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; font: 700 12.5px var(--mono); flex: none;
+  background: var(--noise-2); color: var(--on-status); }
+.letter.attack { background: var(--crit); }
+.letter.suspect { background: var(--warn); }
+
+/* Graphe d'attaque */
+.graph-panel { display: flex; flex-direction: column; }
+.graph-body { display: grid; grid-template-columns: minmax(0, 1fr) 272px; border-top: 1px solid var(--line); flex: 1; min-height: 0; }
+.g-wrap { position: relative; overflow-x: auto; background-image: radial-gradient(var(--dot) 1px, transparent 1.3px); background-size: 22px 22px; }
+.acts { border-left: 1px solid var(--line); padding: 10px; overflow: auto; max-height: 520px; display: flex; flex-direction: column; gap: 2px; }
+.acts .eyebrow { padding: 4px 8px 6px; }
+.act { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 5px 10px; padding: 8px; border-radius: 8px; cursor: pointer; align-items: center; border: 1px solid transparent; }
+.act:hover { background: var(--panel-2); }
+.act.sel { background: var(--accent-soft); border-color: var(--accent); }
+.act .nm { font-size: 12.5px; font-weight: 600; line-height: 1.25; }
+.act .p { font: 600 13px var(--mono); font-variant-numeric: tabular-nums; display: inline-flex; gap: 6px; align-items: center; }
+.act .bar { grid-column: 2 / 4; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.act .bar div { height: 100%; border-radius: 2px; }
+.truth-i { display: none; font: 500 11px var(--mono); white-space: nowrap; }
+body.show-truth .truth-i { display: inline; }
+.more { color: var(--text-3); font-size: 12px; padding: 6px 8px; }
 svg { display: block; overflow: visible; }
-svg text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-.g-node { cursor: pointer; }
-.g-doubt { animation: ring 1.6s ease-in-out infinite; }
-@keyframes ring { 50% { opacity: .2; } }
-@media (prefers-reduced-motion: reduce) { .g-doubt, .chip.live .dot, .level.attack i { animation: none; } }
-.tooltip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--border);
-  border-radius: 8px; padding: 8px 10px; box-shadow: 0 4px 16px rgba(0,0,0,.14); font-size: 12px; max-width: 340px;
-  z-index: 5; display: none; }
-.tooltip .t { color: var(--ink); font-weight: 650; margin-bottom: 4px; }
-.tooltip .r { color: var(--ink-2); }
+svg text { fill: var(--text-2); font-family: var(--font); font-size: 11px; font-variant-numeric: tabular-nums; }
+svg .halo-text { paint-order: stroke; stroke: var(--panel); stroke-width: 4px; stroke-linejoin: round; }
+.hit { cursor: pointer; }
+.pulse-halo { animation: halo 2s ease-in-out infinite; }
+.doubt-ring { animation: pulse 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .pulse-halo, .doubt-ring, .status.live i, .chip.live .dot { animation: none; } }
+
+.tooltip { position: absolute; pointer-events: none; background: var(--panel-3); border: 1px solid var(--line-2); border-radius: 8px;
+  padding: 8px 10px; box-shadow: 0 8px 28px rgba(0,0,0,.45); font-size: 12px; max-width: 340px; z-index: 5; display: none; }
+.tooltip .t { color: var(--text); font-weight: 600; margin-bottom: 3px; }
+.tooltip .r { color: var(--text-2); }
 .tooltip .row { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-.tooltip .row b { min-width: 34px; font-variant-numeric: tabular-nums; }
+.tooltip .row b { min-width: 36px; font: 600 12px var(--mono); }
 .tooltip .row .k { width: 12px; height: 2px; border-radius: 1px; flex: none; }
-.tooltip .row span { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+.tooltip .row span { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; max-width: 250px; }
 
-/* Attaques et fil */
-.cols { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 12px; margin-top: 12px; align-items: start; }
-.stories { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
-.story { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--surface); cursor: pointer; display: flex; flex-direction: column; gap: 6px; }
-.story:hover { border-color: var(--axis); }
-.story.attack { border-color: color-mix(in srgb, var(--st-contain) 55%, var(--border)); }
-.story.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-.story .top { display: flex; align-items: center; gap: 8px; }
-.story .nm { font-weight: 700; font-size: 14.5px; line-height: 1.25; min-width: 0; }
-.story .p { font-size: 24px; font-weight: 750; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.story .pline { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.meter { height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
-.meter div { height: 100%; border-radius: 3px; }
-.story .path { font-family: var(--mono); font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
-.story .tech { display: flex; flex-wrap: wrap; gap: 4px; }
-.story .tech span { font-size: 11.5px; padding: 1px 7px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); }
-.story .doubt { font-size: 12.5px; color: var(--ink); background: color-mix(in srgb, var(--st-investigate) 16%, transparent); border-radius: 6px; padding: 6px 8px; }
-.story .when { font-size: 12px; color: var(--muted); }
-.letter { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; font-weight: 800; font-size: 13px; flex: none;
-  background: var(--st-monitor); color: var(--on-status); }
-.letter.attack { background: var(--st-contain); }
-.letter.suspect { background: var(--st-investigate); }
-.more { font-size: 12.5px; color: var(--ink-2); margin-top: 10px; }
-.moments { list-style: none; margin: 0; padding: 0; max-height: 640px; overflow: auto; }
-.moments li { display: grid; grid-template-columns: 58px 14px minmax(0, 1fr); gap: 8px; padding: 7px 0; align-items: start; font-size: 13px; cursor: pointer; }
-.moments li + li { border-top: 1px solid var(--grid); }
-.moments .time { font-family: var(--mono); color: var(--muted); font-size: 12px; padding-top: 1px; }
-.moments .ic { width: 12px; height: 12px; border-radius: 50%; margin-top: 3px; }
+/* Chronologie par machine */
+.lanes-panel { margin-top: 12px; }
+.l-wrap { position: relative; overflow-x: auto; border-top: 1px solid var(--line); padding: 6px 0 10px; }
+
+/* Bas de page : fil + méthode */
+.bottom { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 12px; margin-top: 12px; align-items: start; }
+.moments { list-style: none; margin: 0; padding: 0 16px 10px; max-height: 420px; overflow: auto; }
+.moments li { display: grid; grid-template-columns: 62px 16px minmax(0, 1fr); gap: 10px; padding: 8px 0; align-items: start; font-size: 13px; cursor: pointer; }
+.moments li + li { border-top: 1px solid var(--line); }
+.moments .time { font: 12px var(--mono); color: var(--text-3); padding-top: 1px; }
+.moments .ic { width: 16px; height: 16px; margin-top: 1px; }
 .moments li.new { animation: flash 1.4s; }
-@keyframes flash { from { background: color-mix(in srgb, var(--accent) 18%, transparent); } }
-.empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
-.truth { display: none; font-size: 12px; font-weight: 650; }
+@keyframes flash { from { background: var(--accent-soft); } }
+.empty { color: var(--text-3); font-size: 13px; padding: 8px 0; }
+.how { list-style: none; counter-reset: s; padding: 0 16px; margin: 0; display: grid; gap: 12px; }
+.how li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 12px; }
+.how li::before { counter-increment: s; content: counter(s); width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--line-2);
+  display: grid; place-items: center; font: 600 12px var(--mono); color: var(--accent); }
+.how b { display: block; font-size: 13px; font-weight: 600; }
+.how span { color: var(--text-2); font-size: 12.5px; }
+.truthbox { margin: 14px 16px 16px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.truthbox .cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.truthbox .n { font: 600 20px var(--mono); }
+.truthbox .l { color: var(--text-2); font-size: 12px; }
+.truthbox .note { color: var(--text-3); font-size: 11.5px; margin-top: 8px; }
+.truth { display: none; }
 body.show-truth .truth { display: block; }
-.truth.yes { color: var(--st-contain); } .truth.no { color: var(--muted); }
+.yes { color: var(--crit); } .no { color: var(--text-3); }
 
-/* Badges de statut : icône + libellé */
-.badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 650; border: 1px solid currentColor; white-space: nowrap; }
-.badge svg { width: 12px; height: 12px; }
-.badge.monitor { color: var(--muted); }
-.badge.investigate { color: var(--ink); border-color: var(--st-investigate); background: color-mix(in srgb, var(--st-investigate) 18%, transparent); }
-.badge.escalate { color: var(--ink); border-color: var(--st-escalate); background: color-mix(in srgb, var(--st-escalate) 18%, transparent); }
-.badge.contain { color: var(--ink); border-color: var(--st-contain); background: color-mix(in srgb, var(--st-contain) 18%, transparent); }
+/* Badges d'action : icône + libellé */
+.badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; font: 600 10.5px var(--mono); letter-spacing: .06em;
+  text-transform: uppercase; white-space: nowrap; border: 1px solid; }
+.badge svg { width: 11px; height: 11px; }
+.badge.monitor { color: var(--text-2); border-color: var(--line-2); }
+.badge.investigate { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 50%, transparent); background: var(--warn-soft); }
+.badge.escalate { color: var(--esc); border-color: color-mix(in srgb, var(--esc) 50%, transparent); background: color-mix(in srgb, var(--esc) 14%, transparent); }
+.badge.contain { color: var(--crit); border-color: color-mix(in srgb, var(--crit) 50%, transparent); background: var(--crit-soft); }
 
-/* Vue analyste */
-.agrid { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 12px; align-items: start; margin-top: 12px; }
+/* ---------- Vue analyste ---------- */
+.agrid { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 12px; align-items: start; margin-top: 12px; }
 .agrid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin-top: 12px; }
-.card h3 { font-size: 13px; margin: 14px 0 2px; }
-.clusters { display: flex; flex-direction: column; gap: 10px; max-height: 920px; overflow: auto; padding-right: 2px; }
-.group-title { color: var(--ink-2); font-size: 12px; font-weight: 650; margin: 4px 0 -2px; display: flex; gap: 6px; align-items: center; }
-.ccard { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; cursor: pointer; background: var(--surface); }
-.ccard:hover { border-color: var(--axis); }
+.pad { padding: 0 16px 16px; }
+.chart-wrap { position: relative; }
+.clusters { display: flex; flex-direction: column; gap: 10px; max-height: 860px; overflow: auto; padding: 0 16px 16px; }
+.group-title { color: var(--text-2); font-size: 12px; font-weight: 600; margin: 4px 0 -2px; display: flex; gap: 8px; align-items: center; }
+.ccard { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; background: var(--panel-2); }
+.ccard:hover { border-color: var(--line-2); }
 .ccard.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .ccard .row1 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.ccard .nm { font-weight: 650; display: flex; align-items: center; gap: 6px; min-width: 0; }
-.ccard .ver { color: var(--muted); font-size: 12px; font-family: var(--mono); }
-.ccard .prob { font-size: 22px; font-weight: 650; }
-.ccard .meter { margin: 6px 0; }
-.ccard .meta { color: var(--ink-2); font-size: 12px; }
-.ccard .mitre { color: var(--ink-2); font-size: 12px; margin-top: 4px; font-family: var(--mono); overflow-wrap: anywhere; }
-.ccard .just { color: var(--muted); font-size: 11.5px; margin-top: 6px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.ccard .nm { font-weight: 600; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ccard .ver { color: var(--text-3); font: 11.5px var(--mono); margin-top: 2px; }
+.ccard .prob { font: 600 22px var(--mono); }
+.ccard .meter { height: 4px; border-radius: 2px; background: var(--line); margin: 6px 0; overflow: hidden; }
+.ccard .meter div { height: 100%; }
+.ccard .meta { color: var(--text-2); font-size: 12px; }
+.ccard .mitre { color: var(--text-2); font: 11.5px var(--mono); margin-top: 4px; overflow-wrap: anywhere; }
+.ccard .just { color: var(--text-3); font-size: 11.5px; margin-top: 6px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .ccard .row2 { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
-details.monitored summary { cursor: pointer; color: var(--ink-2); font-size: 12px; padding: 6px 0; }
-details.monitored ul { list-style: none; margin: 0; padding: 0; font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-details.monitored li { padding: 2px 0; }
-.feed, .log { list-style: none; margin: 0; padding: 0; font-size: 12.5px; }
-.feed li { display: grid; grid-template-columns: 58px 34px 84px minmax(0, 1fr) 54px; gap: 8px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--grid); }
-.log li { display: grid; grid-template-columns: 58px 74px 44px minmax(0, 1fr); gap: 8px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--grid); cursor: pointer; }
-.feed .time, .log .time { color: var(--muted); font-family: var(--mono); font-size: 12px; }
-.lvl { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; font-weight: 650; }
+details.monitored summary { cursor: pointer; color: var(--text-2); font-size: 12px; padding: 6px 0; }
+details.monitored ul { list-style: none; margin: 0; padding: 0; font: 11.5px var(--mono); color: var(--text-2); }
+details.monitored li { padding: 3px 0; cursor: pointer; }
+.feed, .log { list-style: none; margin: 0; padding: 0 16px 12px; font-size: 12.5px; }
+.feed li { display: grid; grid-template-columns: 58px 34px 84px minmax(0, 1fr) 50px; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.log li { display: grid; grid-template-columns: 58px 74px 44px minmax(0, 1fr); gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+.feed .time, .log .time { color: var(--text-3); font: 12px var(--mono); }
+.lvl { display: inline-flex; align-items: center; gap: 4px; font: 600 12px var(--mono); }
 .lvl i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.feed .host { font: 12px var(--mono); color: var(--text-2); }
 .feed .desc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.feed .cl { color: var(--muted); text-align: right; font-family: var(--mono); font-size: 12px; }
-.log .p { font-weight: 650; font-variant-numeric: tabular-nums; }
-.log .change { color: var(--ink-2); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; min-width: 0; }
-footer { color: var(--muted); font-size: 12px; margin: 16px 0 8px; line-height: 1.55; }
-footer b { color: var(--ink-2); font-weight: 650; }
+.feed .cl { color: var(--text-3); text-align: right; font: 12px var(--mono); }
+.log .p { font: 600 12.5px var(--mono); }
+.log .cid { font: 12px var(--mono); color: var(--text-2); }
+.log .change { color: var(--text-2); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; min-width: 0; }
+
+footer { color: var(--text-3); font-size: 12px; margin: 18px 0 8px; line-height: 1.6; }
+footer b { color: var(--text-2); font-weight: 600; }
 [hidden] { display: none !important; }
 
-@media (max-width: 1200px) {
-  .hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .situation { grid-column: 1 / -1; order: -1; }
+@media (max-width: 1180px) {
+  .main { grid-template-columns: minmax(0, 1fr); }
+  .incident { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 24px; align-items: start; }
+  .incident > .inc-top, .incident > .clock-block { grid-column: 1; }
+  .incident > .focus { grid-column: 2; grid-row: 1 / span 3; }
+  .incident > .sep { display: none; }
 }
-@media (max-width: 1000px) {
-  .cols, .agrid, .agrid2 { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 900px) {
+  .graph-body { grid-template-columns: minmax(0, 1fr); }
+  .acts { border-left: 0; border-top: 1px solid var(--line); max-height: none; }
+  .bottom, .agrid, .agrid2 { grid-template-columns: minmax(0, 1fr); }
   .clusters { max-height: none; }
 }
-@media (max-width: 640px) {
-  .hero { grid-template-columns: minmax(0, 1fr); }
-  .headline { font-size: 22px; }
+@media (max-width: 700px) {
+  .incident { display: flex; }
+  .incident > .sep { display: block; }
+  .f-step { flex-basis: 40%; }
+  .f-step.flow::after { display: none; }
+  .f-n { font-size: 22px; }
   .feed li { grid-template-columns: 52px 30px minmax(0, 1fr); }
   .feed .host, .feed .cl { display: none; }
   .log li { grid-template-columns: 52px 44px minmax(0, 1fr); }
@@ -240,16 +277,24 @@ footer b { color: var(--ink-2); font-weight: 650; }
 <div class="wrap">
   <header class="top">
     <div class="brand">
-      <h1>Jev-SOC</h1>
-      <p>Wazuh produit des milliers d'alertes isolées. Jev-SOC les relie en activités (corrélation), puis le modèle Jev juge chacune : attaque, doute ou bruit de fond.</p>
+      <svg class="logo" viewBox="0 0 36 36" aria-hidden="true">
+        <path d="M18 2.5 31.4 10.2v15.6L18 33.5 4.6 25.8V10.2z" fill="none" stroke="var(--accent)" stroke-width="1.8"/>
+        <path d="M11 13.5 18 24l7-10.5" fill="none" stroke="var(--line-2)" stroke-width="1.6"/>
+        <path d="M11 13.5h14" stroke="var(--line-2)" stroke-width="1.6"/>
+        <circle cx="11" cy="13.5" r="2.6" fill="var(--text-2)"/><circle cx="25" cy="13.5" r="2.6" fill="var(--text-2)"/>
+        <circle cx="18" cy="24" r="3.2" fill="var(--crit)"/>
+      </svg>
+      <div>
+        <div class="wordmark">JEV<span>-SOC</span></div>
+        <div class="tag">Corrélation d'alertes Wazuh + décision par un classifieur (Jev) qui dit quand il doute</div>
+      </div>
     </div>
     <div class="controls">
       <span class="chip" id="mode"><span class="dot"></span><span id="mode-text">—</span></span>
-      <button class="btn" id="play" aria-label="Lecture ou pause">❚❚ Pause</button>
+      <button class="btn primary" id="play" aria-label="Lecture ou pause">❚❚ Pause</button>
       <div class="seg" id="speeds" role="group" aria-label="Vitesse de rejeu"></div>
       <button class="btn" id="restart" aria-label="Recommencer depuis le début">↺</button>
-      <button class="btn" id="truth" aria-pressed="false" title="Afficher la vérité terrain (indicateurs du plan d'émulation APT29)">Vérité terrain</button>
-      <button class="btn" id="theme" aria-label="Changer de thème">◐</button>
+      <button class="btn" id="truth" aria-pressed="false" title="Marquer chaque activité réelle ou non (indicateurs du plan d'émulation APT29)">Vérité terrain</button>
     </div>
   </header>
 
@@ -257,86 +302,91 @@ footer b { color: var(--ink-2); font-weight: 650; }
     <button class="tab" role="tab" id="tab-overview" aria-selected="true" aria-controls="view-overview">Vue d'ensemble</button>
     <button class="tab" role="tab" id="tab-analyst" aria-selected="false" aria-controls="view-analyst">Vue analyste SOC</button>
   </div>
-
   <div class="progress" id="progress" role="slider" aria-label="Position dans le rejeu (flèches : ±1 min)" tabindex="0">
     <div class="rail"></div><div class="fill" id="pfill"></div><div id="pmarks"></div><div class="knob" id="pknob"></div>
   </div>
 
   <!-- ============================ VUE D'ENSEMBLE ============================ -->
   <section id="view-overview" role="tabpanel" aria-labelledby="tab-overview">
-    <div class="hero">
-      <div class="card clock-card">
-        <div class="eyebrow">Heure de l'attaque (UTC)</div>
-        <svg class="clock" id="clock" viewBox="0 0 300 70" role="img" aria-label="Horloge"></svg>
-        <div class="elapsed"><b id="elapsed">T+00:00</b> depuis la 1<sup>re</sup> alerte · <span id="date">—</span></div>
-      </div>
-
-      <div class="card situation" aria-live="polite">
-        <span class="level" id="level"><i></i><span id="level-text">En attente</span></span>
-        <h2 class="headline" id="headline">Aucune alerte reçue pour l'instant</h2>
-        <p class="why" id="why">Les alertes Wazuh vont arriver ; le correlator les regroupera en activités.</p>
-        <p class="todo" id="todo"></p>
-        <div class="latest" id="latest"></div>
-      </div>
-
-      <div class="card">
-        <div class="eyebrow" style="margin-bottom:4px">Ce que fait Jev-SOC, en direct</div>
-        <div class="pipeline">
-          <div class="step"><div class="what"><b>Alertes Wazuh</b>le flux brut</div><div class="n" id="n-alerts">0</div></div>
-          <div class="step"><div class="what"><b>Activités corrélées</b>alertes reliées par machine, compte, processus</div><div class="n" id="n-groups">0</div></div>
-          <div class="step"><div class="what"><b>Jugées par Jev</b>assez riches pour décider</div><div class="n" id="n-judged">0</div></div>
-          <div class="step"><div class="what"><b>À traiter</b>par un analyste</div><div><div class="n" id="n-todo">0</div><div class="split" id="n-split">—</div></div></div>
-        </div>
-      </div>
+    <div class="funnel" aria-live="polite">
+      <div class="f-step flow"><div class="f-n" id="n-alerts">0</div><div class="f-l">alertes Wazuh</div></div>
+      <div class="f-step flow"><div class="f-n" id="n-groups">0</div><div class="f-l">activités corrélées</div></div>
+      <div class="f-step flow"><div class="f-n" id="n-judged">0</div><div class="f-l">jugées par Jev</div></div>
+      <div class="f-step crit"><div class="f-n" id="n-attacks">0</div><div class="f-l">intrusions</div></div>
+      <div class="f-step warn"><div class="f-n" id="n-doubts">0</div><div class="f-l">doutes à vérifier</div></div>
+      <div class="f-step ratio"><div class="f-n" id="n-ratio">—</div><div class="f-l">de volume à trier pour l'analyste</div></div>
     </div>
 
-    <div class="card graph-card">
-      <div class="graph-head">
+    <div class="main">
+      <section class="panel incident" id="incident" aria-live="polite">
+        <div class="inc-top"><span class="status" id="status"><i></i><span id="status-text">En attente</span></span><span class="inc-mode" id="inc-mode">—</span></div>
+        <div class="clock-block">
+          <svg class="clock" id="clock" viewBox="0 0 330 70" role="img" aria-label="Horloge"></svg>
+          <div class="clock-sub"><span id="clock-date">UTC</span><span><b id="elapsed">T+00:00</b> depuis la 1<sup>re</sup> alerte</span></div>
+        </div>
+        <div class="sep"></div>
+        <div class="focus" id="focus"></div>
+      </section>
+
+      <section class="panel graph-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Graphe d'attaque</h2>
+            <p class="sub">Machines, activités corrélées (lettres) et déplacements de l'attaquant (flèches : heure · technique). Les comptes partagés entre machines sont le lien de corrélation.</p>
+          </div>
+          <div class="legend" id="g-legend"></div>
+        </div>
+        <div class="graph-body">
+          <div class="g-wrap" id="g-wrap"><svg id="graph" role="img" aria-label="Graphe d'attaque : machines, activités, propagation"></svg><div class="tooltip" id="g-tip"></div></div>
+          <aside class="acts" id="acts" aria-label="Activités à traiter"></aside>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel lanes-panel">
+      <div class="panel-head">
         <div>
-          <h2>Propagation de l'attaque</h2>
-          <p class="subtitle" style="margin-bottom:0">Les machines (cercles), les activités qui les touchent (étiquettes reliées) et les déplacements d'une machine à l'autre (flèches). Survoler pour le détail, cliquer pour isoler une activité.</p>
+          <h2>Chronologie par machine</h2>
+          <p class="sub">Une barre = les alertes Wazuh de 10 s environ (hauteur logarithmique). En couleur, celles rattachées à une intrusion ou à un doute ; en gris, le bruit. Cliquer pour se déplacer dans le temps.</p>
         </div>
-        <div class="legend" id="g-legend"></div>
+        <div class="legend" id="l-legend"></div>
       </div>
-      <div class="chart-wrap graph-scroll" id="g-wrap"><svg id="graph" role="img" aria-label="Graphe de corrélation : machines, activités et propagation"></svg><div class="tooltip" id="g-tip"></div></div>
-    </div>
+      <div class="l-wrap" id="l-wrap"><svg id="lanes" role="img" aria-label="Chronologie des alertes par machine"></svg><div class="tooltip" id="l-tip"></div></div>
+    </section>
 
-    <div class="cols">
-      <div class="card">
-        <h2>Attaques détectées</h2>
-        <p class="subtitle">Chaque activité porte une lettre et un nom simple (machines touchées, techniques MITRE des règles Wazuh). Rouge : Jev est sûr. Orange avec « ? » : Jev hésite, un analyste tranche.</p>
-        <div class="stories" id="stories"></div>
-      </div>
-      <div class="card">
-        <h2>Fil de l'attaque</h2>
-        <p class="subtitle">Les moments clés, du plus récent au plus ancien. Cliquer pour isoler l'activité.</p>
+    <div class="bottom">
+      <section class="panel">
+        <div class="panel-head"><div><h2>Fil de l'attaque</h2><p class="sub">Les moments clés, du plus récent au plus ancien. Cliquer pour suivre l'activité.</p></div></div>
         <ul class="moments" id="moments"></ul>
-      </div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><div><h2>Comment ça marche</h2></div></div>
+        <ol class="how">
+          <li><div><b>Collecte</b><span>Alertes Wazuh (index wazuh-alerts-*). Ici : journaux Windows/Sysmon de l'émulation APT29 rejoués dans un vrai Wazuh 4.14.</span></div></li>
+          <li><div><b>Corrélation</b><span>Union-find sur les entités partagées : machine, compte, arbre de processus Sysmon, fichier. Les entités « hub » (présentes en continu) ne relient rien.</span></div></li>
+          <li><div><b>Jugement</b><span>Jev, un classifieur (pas un LLM), répond à des questions typées en une passe : P(intrusion multi-étapes), priorité, stade atteint.</span></div></li>
+          <li><div><b>Politique</b><span id="how-policy">Seuils calibrés sur d'autres données : bruit, doute (un analyste tranche), contenir. Mode shadow : Jev-SOC recommande, il ne bloque rien.</span></div></li>
+        </ol>
+        <div class="truthbox" id="truthbox" hidden></div>
+      </section>
     </div>
   </section>
 
   <!-- ============================ VUE ANALYSTE ============================ -->
   <section id="view-analyst" role="tabpanel" aria-labelledby="tab-analyst" hidden>
     <div class="agrid">
-      <div class="card">
-        <h2>Probabilité d'attaque, cluster par cluster</h2>
-        <p class="subtitle">P(intrusion multi-étapes) calibrée, re-jugée à chaque évolution du cluster. Couleur = action recommandée.</p>
-        <div class="legend" id="p-legend" style="margin-bottom:6px"></div>
-        <div class="chart-wrap" id="p-wrap"><svg id="p-chart" role="img" aria-label="Probabilité d'attaque par cluster au fil du temps"></svg><div class="tooltip" id="p-tip"></div></div>
-        <h3>Alertes Wazuh par minute</h3>
-        <p class="subtitle" style="margin-bottom:4px">Le volume brut, par niveau de règle Wazuh.</p>
-        <div class="legend" id="v-legend" style="margin-bottom:6px"></div>
-        <div class="chart-wrap" id="v-wrap"><svg id="v-chart" role="img" aria-label="Alertes Wazuh par minute et par niveau"></svg><div class="tooltip" id="v-tip"></div></div>
-      </div>
-      <aside class="card">
-        <h2>Décisions par cluster</h2>
-        <p class="subtitle">Dernière version de chaque décision : probabilités brute et calibrée, chaîne MITRE, justification déterministe.</p>
+      <section class="panel">
+        <div class="panel-head"><div><h2>Probabilité d'attaque, activité par activité</h2><p class="sub">P(intrusion multi-étapes) calibrée, re-jugée à chaque évolution de l'activité. Couleur = action recommandée.</p></div><div class="legend" id="p-legend"></div></div>
+        <div class="chart-wrap pad" id="p-wrap"><svg id="p-chart" role="img" aria-label="Probabilité d'attaque par activité au fil du temps"></svg><div class="tooltip" id="p-tip"></div></div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><div><h2>Décisions par activité</h2><p class="sub">Dernière version : probabilités brute et calibrée, chaîne MITRE, justification déterministe.</p></div></div>
         <div class="clusters" id="clusters"></div>
-      </aside>
+      </section>
     </div>
     <div class="agrid2">
-      <div class="card"><h2>Flux d'alertes Wazuh</h2><p class="subtitle">Dernières alertes reçues et cluster rejoint.</p><ul class="feed" id="feed"></ul></div>
-      <div class="card"><h2>Journal des décisions</h2><p class="subtitle">Chaque re-jugement crée une nouvelle version, rien n'est écrasé.</p><ul class="log" id="log"></ul></div>
+      <section class="panel"><div class="panel-head"><div><h2>Flux d'alertes Wazuh</h2><p class="sub">Dernières alertes reçues et activité rejointe.</p></div></div><ul class="feed" id="feed"></ul></section>
+      <section class="panel"><div class="panel-head"><div><h2>Journal des décisions</h2><p class="sub">Chaque re-jugement crée une nouvelle version, rien n'est écrasé.</p></div></div><ul class="log" id="log"></ul></section>
     </div>
   </section>
 
@@ -351,50 +401,70 @@ footer b { color: var(--ink-2); font-weight: 650; }
 // Constantes
 // ===========================================================================
 const ACTIONS = {
-  monitor:     { label: "Surveiller", color: "--st-monitor", rank: 0 },
-  investigate: { label: "Investiguer", color: "--st-investigate", rank: 1 },
-  escalate:    { label: "Escalader", color: "--st-escalate", rank: 2 },
-  contain:     { label: "Contenir", color: "--st-contain", rank: 3 },
+  monitor:     { label: "Surveiller", color: "--noise-2", rank: 0 },
+  investigate: { label: "Investiguer", color: "--warn", rank: 1 },
+  escalate:    { label: "Escalader", color: "--esc", rank: 2 },
+  contain:     { label: "Contenir", color: "--crit", rank: 3 },
 };
-// Nature de l'activité, construite côté moteur (src/jevsoc/naming.py) à partir de l'action.
+// Nature de l'activité, calculée par le moteur (src/jevsoc/naming.py) à partir de l'action.
 const KIND = {
-  attack:  { color: "--st-contain", rank: 2 },
-  suspect: { color: "--st-investigate", rank: 1 },
-  noise:   { color: "--st-monitor", rank: 0 },
+  attack:  { color: "--crit", rank: 2 },
+  suspect: { color: "--warn", rank: 1 },
+  noise:   { color: "--noise-2", rank: 0 },
 };
 const ICONS = {
   monitor: '<svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="6" cy="6" r="1.6" fill="currentColor"/></svg>',
   investigate: '<svg viewBox="0 0 12 12"><circle cx="5" cy="5" r="3.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7.6 7.6 11 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
   escalate: '<svg viewBox="0 0 12 12"><path d="M6 10.5V2M2.5 5.2 6 1.7l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  contain: '<svg viewBox="0 0 12 12"><path d="M4 1h4l3 3v4l-3 3H4L1 8V4z" fill="currentColor"/><path d="M3.6 6h4.8" stroke="var(--surface)" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  contain: '<svg viewBox="0 0 12 12"><path d="M4 1h4l3 3v4l-3 3H4L1 8V4z" fill="currentColor"/><path d="M3.6 6h4.8" stroke="var(--panel)" stroke-width="1.6" stroke-linecap="round"/></svg>',
 };
+// Tactiques MITRE ATT&CK dans l'ordre de la kill chain. Les tactiques observées sont calculées par
+// le moteur (src/jevsoc/naming.py, à partir des techniques des règles Wazuh, jamais du modèle).
+const TACTICS = [
+  ["execution", "Exécution"], ["persistence", "Persistance"], ["privesc", "Élévation de privilèges"],
+  ["evasion", "Évasion des défenses"], ["credential", "Vol d'identifiants"], ["discovery", "Découverte"],
+  ["lateral", "Mouvement latéral"], ["collection", "Collecte"], ["c2", "Commande et contrôle"],
+  ["exfil", "Exfiltration"], ["impact", "Impact"],
+];
+// Réponse « furthest_stage » du modèle -> tactique (affichée à part : c'est un avis de Jev).
+const STAGE_TACTIC = { execution: "execution", persistence: "persistence", privilege_escalation: "privesc",
+  lateral_movement: "lateral", collection: "collection", exfiltration: "exfil", impact: "impact" };
+const STAGE_LABEL = { none_benign: "bénin", initial_access: "accès initial", execution: "exécution", persistence: "persistance",
+  privilege_escalation: "élévation de privilèges", lateral_movement: "mouvement latéral", collection: "collecte",
+  exfiltration: "exfiltration", impact: "impact" };
+const QUIET_USERS = new Set(["system", "network service", "local service"]);
 const SPEEDS = [5, 10, 20, 60];
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const MAX_STORIES = 9;
-const MAX_PILLS = 8;
+const MAX_ACTS = 10;
 
 // ===========================================================================
 // État : lecture (S) et modèle reconstruit à partir des événements (M)
 // ===========================================================================
 const S = { meta: null, events: [], idx: 0, clock: 0, playing: true, speed: 20, mode: "recorded",
-            selected: null, ended: false, lastFrame: 0, dirty: true, view: "overview", force: true };
+            selected: null, ended: false, lastFrame: 0, dirty: true, view: "overview", force: true, lanes: null };
 let M = freshModel();
 function freshModel() {
-  return { alerts: 0, clusters: new Map(), hosts: new Map(), perMin: [], feed: [], log: [],
-           moments: [], letters: 0, newMoments: 0, newFeed: 0, newLog: 0 };
+  return { alerts: 0, clusters: new Map(), hosts: new Map(), alertLog: [], feed: [], log: [], moments: [],
+           letters: 0, newMoments: 0, newFeed: 0, newLog: 0 };
 }
 
 // Utilitaires
+const $ = id => document.getElementById(id);
 function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 function band(level) { return level >= 12 ? 2 : level >= 7 ? 1 : 0; }
 function fmtT(t) { const s = Math.max(0, Math.floor(t)); return "T+" + String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"); }
+function clockAt(t) {
+  const d = new Date((S.meta.start + t) * 1000);
+  return [d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()].map(n => String(n).padStart(2, "0")).join(":");
+}
 function pct(p) { return Math.round(p * 100) + " %"; }
 function num(n) { return n.toLocaleString("fr-FR"); }
 function dec2(x) { return x.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 // plural(4, "autre activité") -> "4 autres activités" (chaque mot prend un s).
-function plural(n, words) { return n + " " + (n > 1 ? words.split(" ").map(w => w + "s").join(" ") : words); }
+function plural(n, words) { return num(n) + " " + (n > 1 ? words.split(" ").map(w => w + "s").join(" ") : words); }
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function html(tag, cls, markup) { const e = el(tag, cls); e.innerHTML = markup; return e; }  // markup sans donnée brute (esc)
 function badge(action) {
   const b = el("span", "badge " + action);
   b.innerHTML = ICONS[action];  // icône statique, aucune donnée
@@ -404,9 +474,10 @@ function badge(action) {
 function actionColor(a) { return css(ACTIONS[a || "monitor"].color); }
 function kindColor(k) { return css(KIND[k || "noise"].color); }
 function letterEl(c) { return el("span", "letter " + (c.last ? c.last.kind : ""), c.letter || "·"); }
-function cname(c) { return c.last ? c.last.name : c.id; }
-function label(c) { return (c.letter ? c.letter + " · " : "") + cname(c); }
+function label(c) { return (c.letter ? c.letter + " · " : "") + (c.last ? c.last.name : c.id); }
 function hostPath(c) { return [...c.hostFirst.entries()].sort((a, b) => a[1].t - b[1].t).map(([h]) => h); }
+function resolve(id) { let c = M.clusters.get(id); while (c && c.mergedInto) c = M.clusters.get(c.mergedInto); return c; }
+function tacticsOf(e) { return new Set(e.tactics || []); }
 
 // ===========================================================================
 // Application des événements (identique pour l'enregistrement et le direct)
@@ -414,7 +485,7 @@ function hostPath(c) { return [...c.hostFirst.entries()].sort((a, b) => a[1].t -
 function cluster(id, t) {
   if (!M.clusters.has(id)) M.clusters.set(id, { id, firstT: t, alerts: 0, hostCounts: new Map(), hostFirst: new Map(),
     users: new Set(), history: [], last: null, closed: false, closedT: null, mergedInto: null, mergedT: null,
-    letter: null, spread: new Set(), spottedT: null });
+    letter: null, spread: new Set(), spottedT: null, spreadDirty: false });
   return M.clusters.get(id);
 }
 function moment(t, kind, text, clusterId) { M.moments.push({ t, kind, text, cluster: clusterId }); M.newMoments += 1; }
@@ -431,15 +502,12 @@ function apply(e) {
       if (!c.hostFirst.has(e.host)) c.hostFirst.set(e.host, { t: e.t, technique: e.technique });
       if (!M.hosts.has(e.host)) M.hosts.set(e.host, { firstT: e.t, alerts: 0, users: new Set() });
       const h = M.hosts.get(e.host); h.alerts += 1;
-      (e.users || []).forEach(u => { if (u !== "system" && u !== "network service" && u !== "local service") { h.users.add(u); c.users.add(u); } });
+      (e.users || []).forEach(u => { if (!QUIET_USERS.has(u)) { h.users.add(u); c.users.add(u); } });
+      M.alertLog.push({ t: e.t, host: e.host, cluster: e.cluster });
     }
-    const m = Math.floor(e.t / 60);
-    while (M.perMin.length <= m) M.perMin.push([0, 0, 0]);
-    M.perMin[m][band(e.level)] += 1;
     M.feed.unshift(e); if (M.feed.length > 14) M.feed.pop();
     M.newFeed += 1;
-    // Propagation : annoncée après les éventuelles fusions du même instant (voir flushSpread).
-    c.spreadDirty = true;
+    c.spreadDirty = true;  // propagation annoncée après les fusions du même instant (flushSpread)
   } else if (e.type === "merge") {
     const into = cluster(e.into, e.t);
     for (const id of e.absorbed) {
@@ -467,9 +535,9 @@ function apply(e) {
       if (!c.letter) c.letter = LETTERS[M.letters++ % 26];
       if (c.spottedT === null) c.spottedT = e.t;
       const wasNoise = !prev || prev.kind === "noise";
-      if (wasNoise && e.kind === "attack") moment(e.t, "attack", `Jev repère ${c.letter} « ${e.name} » : attaque à ${pct(e.p)}, isolement recommandé`, c.id);
+      if (wasNoise && e.kind === "attack") moment(e.t, "attack", `Jev repère ${c.letter} « ${e.name} » : intrusion à ${pct(e.p)}, isolement recommandé`, c.id);
       else if (wasNoise) moment(e.t, "doubt", `Jev s'interroge sur ${c.letter} « ${e.name} » (${pct(e.p)}) : à vérifier`, c.id);
-      else if (e.kind === "attack" && prev.kind !== "attack") moment(e.t, "attack", `${c.letter} devient une attaque (${pct(e.p)}) : isolement recommandé`, c.id);
+      else if (e.kind === "attack" && prev.kind !== "attack") moment(e.t, "attack", `${c.letter} devient une intrusion (${pct(e.p)}) : isolement recommandé`, c.id);
       c.spreadDirty = true;
     } else if (prev && prev.kind !== "noise") {
       moment(e.t, "calm", `${c.letter} retombe dans le bruit de fond (${pct(e.p)})`, c.id);
@@ -478,24 +546,21 @@ function apply(e) {
   S.dirty = true;
 }
 
-// Annonce chaque nouvelle machine touchée par une activité suspecte, avec l'heure et la technique
-// de la première alerte sur cette machine. Appelée une fois les événements d'une image appliqués,
-// pour qu'une fusion survenue au même instant apporte d'abord sa propre chronologie.
+// Annonce chaque nouvelle machine touchée par une activité suspecte (heure et technique de la
+// première alerte sur cette machine), une fois les événements d'une image appliqués : une fusion
+// survenue au même instant apporte d'abord sa propre chronologie.
 function flushSpread() {
   for (const c of M.clusters.values()) {
     if (!c.spreadDirty) continue;
     c.spreadDirty = false;
-    if (!c.mergedInto && c.last && c.last.kind !== "noise") announceSpread(c);
-  }
-}
-function announceSpread(c) {
-  const ordered = [...c.hostFirst.entries()].sort((a, b) => a[1].t - b[1].t);
-  for (let i = 1; i < ordered.length; i++) {
-    const [host, info] = ordered[i];
-    if (c.spread.has(host)) continue;
-    c.spread.add(host);
-    const how = info.technique ? ` (${info.technique})` : "";
-    moment(info.t, "spread", `${c.letter} se propage de ${ordered[i - 1][0]} vers ${host}${how}`, c.id);
+    if (c.mergedInto || !c.last || c.last.kind === "noise") continue;
+    const ordered = [...c.hostFirst.entries()].sort((a, b) => a[1].t - b[1].t);
+    for (let i = 1; i < ordered.length; i++) {
+      const [host, info] = ordered[i];
+      if (c.spread.has(host)) continue;
+      c.spread.add(host);
+      moment(info.t, "spread", `${c.letter} se propage de ${ordered[i - 1][0]} vers ${host}${info.technique ? " (" + info.technique + ")" : ""}`, c.id);
+    }
   }
 }
 
@@ -505,26 +570,37 @@ function threats() {
   return judged().filter(c => c.last.kind !== "noise")
     .sort((a, b) => KIND[b.last.kind].rank - KIND[a.last.kind].rank || b.last.p - a.last.p);
 }
+function hostOrder() { return [...M.hosts.entries()].sort((a, b) => a[1].firstT - b[1].firstT).map(([h]) => h); }
+function focusCluster() {
+  if (S.selected) { const c = resolve(S.selected); if (c && c.last) return c; }
+  return threats()[0] || null;
+}
+function situationLevel() {
+  const th = threats();
+  if (th.some(c => c.last.kind === "attack")) return "attack";
+  if (th.length) return "suspect";
+  if (judged().length) return "watch";
+  return "wait";
+}
 
 // ===========================================================================
 // Lecture : enregistrement (horloge locale) ou direct (flux SSE)
 // ===========================================================================
 function setMeta(meta) {
   S.meta = meta;
-  const model = meta.backend === "jev" ? "Jev " + (meta.model || "") : meta.backend;
-  document.getElementById("mode-text").textContent = (S.mode === "live" ? "Direct · " : "Rejeu · ") + model;
-  document.getElementById("mode").classList.toggle("live", S.mode === "live");
-  if (!meta.truth) document.getElementById("truth").hidden = true;
+  const model = meta.backend === "jev" ? "JEV " + (meta.model || "").replace(/^jev-/, "") : meta.backend.toUpperCase();
+  $("mode-text").textContent = (S.mode === "live" ? "DIRECT · " : "REJEU · ") + model;
+  $("mode").classList.toggle("live", S.mode === "live");
+  if (!meta.truth) $("truth").hidden = true;
   const d = new Date(meta.start * 1000);
-  document.getElementById("date").textContent = d.toLocaleDateString("fr-FR", { timeZone: "UTC", day: "numeric", month: "long", year: "numeric" });
-  const f = document.getElementById("footer"); f.textContent = "";
+  $("clock-date").textContent = "UTC · " + d.toLocaleDateString("fr-FR", { timeZone: "UTC", day: "numeric", month: "short", year: "numeric" });
+  $("how-policy").textContent = `Seuils calibrés sur d'autres données (AIT-ADS, Linux) : sous ${pct(meta.investigate_min)} bruit, de ${pct(meta.investigate_min)} à ${pct(meta.contain_min)} doute (un analyste tranche), dès ${pct(meta.contain_min)} contenir. Mode shadow : Jev-SOC recommande, il ne bloque rien.`;
+  const f = $("footer"); f.textContent = "";
   const parts = [
-    ["Scénario : ", meta.title + ". " + meta.source + ", " + num(meta.alerts_total) + " alertes, rejouées en accéléré."],
-    ["Décisions : ", (meta.backend === "jev" ? "vrais appels au modèle Jev (API TypeSafe)" : "backend " + meta.backend) + ", un par évolution notable d'une activité. "
-      + (meta.calibrated ? "Probabilités recalibrées sur d'autres données (AIT-ADS, Linux), jamais réglées sur celles-ci." : "Probabilités brutes.")
-      + " Seuils : investiguer dès " + pct(meta.investigate_min) + ", contenir dès " + pct(meta.contain_min) + "."],
-    ["Noms des activités : ", "construits par règles fixes (machines touchées, techniques MITRE des règles Wazuh, action recommandée) : aucun texte généré."],
-    ["Mode shadow : ", "Jev-SOC recommande, il ne bloque rien. Vérité terrain : indicateurs du plan d'émulation public d'APT29."],
+    ["Données : ", meta.title + ". " + meta.source + ", " + num(meta.alerts_total) + " alertes, rejouées en accéléré."],
+    ["Décisions : ", (meta.backend === "jev" ? "vrais appels au modèle Jev (API TypeSafe)" : "backend " + meta.backend)
+      + ", une par évolution notable d'une activité. " + (meta.calibrated ? "Probabilités recalibrées (Platt) sur AIT-ADS, jamais réglées sur ce rejeu." : "Probabilités brutes.")],
+    ["Noms et tactiques : ", "règles fixes (machines touchées, techniques MITRE des règles Wazuh, action recommandée) : aucun texte généré."],
   ];
   for (const [b, t] of parts) { const p = el("div"); p.appendChild(el("b", null, b)); p.appendChild(document.createTextNode(t)); f.appendChild(p); }
   buildProgressMarks();
@@ -533,8 +609,8 @@ function setMeta(meta) {
 function startRecorded(rec) { S.mode = "recorded"; S.events = rec.events; setMeta(rec.meta); requestAnimationFrame(loop); }
 function startLive() {
   S.mode = "live";
-  ["speeds", "restart", "play"].forEach(id => document.getElementById(id).hidden = true);
-  document.getElementById("progress").style.pointerEvents = "none";
+  ["speeds", "restart", "play"].forEach(id => $(id).hidden = true);
+  $("progress").style.pointerEvents = "none";
   const src = new EventSource("stream");
   src.onmessage = msg => {
     const e = JSON.parse(msg.data);
@@ -544,11 +620,15 @@ function startLive() {
   };
   requestAnimationFrame(loop);
 }
+// Avance le rejeu jusqu'au temps t (aussi utilisé pour produire des vidéos image par image).
+function advanceTo(t) {
+  S.clock = Math.min(S.meta.duration, t);
+  while (S.idx < S.events.length && S.events[S.idx].t <= S.clock) apply(S.events[S.idx++]);
+}
 function loop(now) {
   if (S.mode === "recorded" && S.meta) {
     const dt = S.lastFrame ? (now - S.lastFrame) / 1000 : 0;
-    if (S.playing && !S.ended) S.clock = Math.min(S.meta.duration, S.clock + dt * S.speed);
-    while (S.idx < S.events.length && S.events[S.idx].t <= S.clock) apply(S.events[S.idx++]);
+    if (S.playing && !S.ended) advanceTo(S.clock + dt * S.speed);
     if (S.idx >= S.events.length && S.clock >= S.meta.duration && !S.ended) { S.ended = true; S.playing = false; updatePlay(); }
   }
   S.lastFrame = now;
@@ -556,8 +636,8 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 function seek(t) {
-  M = freshModel(); S.idx = 0; S.clock = t; S.ended = false;
-  while (S.idx < S.events.length && S.events[S.idx].t <= t) apply(S.events[S.idx++]);
+  M = freshModel(); S.idx = 0; S.ended = false;
+  advanceTo(t);
   flushSpread();
   M.newMoments = 0; M.newFeed = 0; M.newLog = 0;
   S.force = true; S.dirty = true; lastClockSec = -1; lastRender = 0;
@@ -571,412 +651,481 @@ function render() {
   flushSpread();
   const now = performance.now();
   const sec = Math.floor(S.clock);
-  if (sec !== lastClockSec || S.force) { lastClockSec = sec; renderClock(); }
+  if (S.meta && (sec !== lastClockSec || S.force)) { lastClockSec = sec; renderClock(); }
   renderProgress();
-  if (!S.dirty || now - lastRender < 150) return;
+  if (!S.meta || !S.dirty || now - lastRender < 150) return;
   lastRender = now; S.dirty = false;
-  if (S.view === "overview") { renderSituation(); renderPipeline(); renderGraph(); renderStories(); renderMoments(); }
-  else { renderPChart(); renderVChart(); renderClusters(); renderFeed(); renderLog(); }
+  if (S.view === "overview") { renderFunnel(); renderIncident(); renderGraph(); renderActs(); renderLanes(); renderMoments(); renderTruth(); }
+  else { renderPChart(); renderClusters(); renderFeed(); renderLog(); }
   S.force = false;
 }
-function rerender() { S.force = true; S.dirty = true; lastRender = 0; render(); }
+function rerender() { S.force = true; S.dirty = true; lastRender = 0; lastClockSec = -1; render(); }
 function renderProgress() {
   if (!S.meta) return;
   const f = Math.min(1, S.clock / S.meta.duration) * 100;
-  document.getElementById("pfill").style.width = f + "%";
-  document.getElementById("pknob").style.left = f + "%";
+  $("pfill").style.width = f + "%";
+  $("pknob").style.left = f + "%";
 }
 function buildProgressMarks() {
-  const box = document.getElementById("pmarks"); box.textContent = "";
+  const box = $("pmarks"); box.textContent = "";
   if (!S.meta || !S.events.length) return;
   const seen = new Set();
   for (const e of S.events) {
     if (e.type === "decision" && e.kind === "attack" && !seen.has(e.cluster)) {
       seen.add(e.cluster);
-      const m = el("div", "mark"); m.style.left = (e.t / S.meta.duration * 100) + "%"; m.title = "Attaque repérée à " + fmtT(e.t);
+      const m = el("div", "mark"); m.style.left = (e.t / S.meta.duration * 100) + "%"; m.title = "Intrusion repérée à " + fmtT(e.t);
       box.appendChild(m);
     }
   }
 }
 
-// --- Horloge numérique à 7 segments (SVG) -------------------------------------
+// --- Horloge numérique à 7 segments -------------------------------------------
 // Chaque chiffre allume ses segments (a = haut, b/c = droite, d = bas, e/f = gauche, g = milieu).
-// La couleur suit la situation : bleu au calme, orange en cas de doute, rouge pendant une attaque.
+// Couleur et halo suivent la situation : bleu au calme, orange en cas de doute, rouge en attaque.
 const SEG = { 0: "abcdef", 1: "bc", 2: "abged", 3: "abgcd", 4: "fgbc", 5: "afgcd", 6: "afgedc", 7: "abc", 8: "abcdefg", 9: "abcdfg" };
-function digitRects(x, w, h, t) {
-  const v = h / 2 - 1.5 * t;
-  return {
-    a: [x + t, 0, w - 2 * t, t], b: [x + w - t, t, t, v], c: [x + w - t, h / 2 + 0.5 * t, t, v],
-    d: [x + t, h - t, w - 2 * t, t], e: [x, h / 2 + 0.5 * t, t, v], f: [x, t, t, v], g: [x + t, h / 2 - t / 2, w - 2 * t, t],
-  };
-}
 function renderClock() {
-  if (!S.meta) return;
-  const svg = document.getElementById("clock");
-  const d = new Date((S.meta.start + S.clock) * 1000);
-  const txt = [d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()].map(n => String(n).padStart(2, "0")).join(":");
   const level = situationLevel();
-  const on = level === "attack" ? css("--st-contain") : level === "suspect" ? css("--st-investigate") : css("--accent");
-  const off = css("--grid");
-  const w = 32, h = 60, t = 7, gap = 7, colon = 14;
-  const parts = [`<g transform="translate(8,2) skewX(-6)">`];
+  const on = css({ attack: "--crit", suspect: "--warn", watch: "--accent", wait: "--accent" }[level]);
+  const off = css("--line");
+  const txt = clockAt(S.clock);
+  const w = 34, h = 62, t = 7.5, gap = 8, colon = 14;
+  const v = h / 2 - 1.5 * t;
+  const parts = [`<g transform="translate(8,3) skewX(-6)">`];
   let x = 0;
   for (const ch of txt) {
     if (ch === ":") {
-      for (const yy of [h * 0.3, h * 0.62]) parts.push(`<rect x="${x + colon / 2 - 3.5}" y="${yy}" width="7" height="7" rx="2" fill="${on}"/>`);
+      for (const yy of [h * 0.28, h * 0.62]) parts.push(`<rect x="${x + colon / 2 - 3.8}" y="${yy}" width="7.6" height="7.6" rx="2" fill="${on}"/>`);
       x += colon + gap;
       continue;
     }
-    const rects = digitRects(x, w, h, t);
+    const r = {
+      a: [x + t, 0, w - 2 * t, t], b: [x + w - t, t, t, v], c: [x + w - t, h / 2 + 0.5 * t, t, v],
+      d: [x + t, h - t, w - 2 * t, t], e: [x, h / 2 + 0.5 * t, t, v], f: [x, t, t, v], g: [x + t, h / 2 - t / 2, w - 2 * t, t],
+    };
     for (const s of "abcdefg") {
-      const [rx, ry, rw, rh] = rects[s];
-      parts.push(`<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" rx="${t / 2}" fill="${SEG[ch].includes(s) ? on : off}"${SEG[ch].includes(s) ? "" : ' opacity=".4"'}/>`);
+      const [rx, ry, rw, rh] = r[s], lit = SEG[ch].includes(s);
+      parts.push(`<rect x="${rx + 0.6}" y="${ry + 0.6}" width="${rw - 1.2}" height="${rh - 1.2}" rx="${t / 2}" fill="${lit ? on : off}"/>`);
     }
     x += w + gap;
   }
   parts.push("</g>");
-  svg.setAttribute("viewBox", `0 0 ${x + 8} ${h + 4}`);
+  const svg = $("clock");
+  svg.setAttribute("viewBox", `0 0 ${x + 6} ${h + 6}`);
   svg.innerHTML = parts.join("");
   svg.setAttribute("aria-label", "Heure de l'attaque : " + txt + " UTC");
-  document.getElementById("elapsed").textContent = fmtT(S.clock);
+  $("elapsed").textContent = fmtT(S.clock);
 }
 
-// --- Situation -------------------------------------------------------------------
-function situationLevel() {
-  const th = threats();
-  if (th.some(c => c.last.kind === "attack")) return "attack";
-  if (th.length) return "suspect";
-  if (judged().length) return "watch";
-  return "wait";
+// --- Entonnoir -------------------------------------------------------------------
+function renderFunnel() {
+  const th = threats(), attacks = th.filter(c => c.last.kind === "attack").length;
+  $("n-alerts").textContent = num(M.alerts);
+  $("n-groups").textContent = num(liveClusters().length);
+  $("n-judged").textContent = num(judged().length);
+  $("n-attacks").textContent = num(attacks);
+  $("n-doubts").textContent = num(th.length - attacks);
+  $("n-ratio").textContent = th.length ? "÷ " + num(Math.round(M.alerts / th.length)) : "—";
 }
-function renderSituation() {
-  const level = situationLevel(), th = threats();
-  const attacks = th.filter(c => c.last.kind === "attack"), doubts = th.filter(c => c.last.kind === "suspect");
-  document.getElementById("level").className = "level " + level;
-  document.getElementById("level-text").textContent =
-    { attack: "Attaque en cours", suspect: "Suspicion", watch: "Surveillance", wait: "En attente" }[level];
-  const h = document.getElementById("headline"), why = document.getElementById("why"), todo = document.getElementById("todo");
-  h.textContent = "";
-  if (level === "attack") {
-    const top = attacks[0];
-    h.appendChild(letterEl(top)); h.appendChild(el("span", null, top.last.name));
-    why.textContent = `Jev est sûr à ${pct(top.last.p)} qu'il s'agit d'une intrusion en plusieurs étapes`
-      + (top.last.summary.length ? ` : ${top.last.summary.join(", ")}.` : ".")
-      + ` ${num(top.alerts)} alertes Wazuh reliées entre elles.`;
-    const machines = [...new Set(attacks.flatMap(c => hostPath(c)))];
-    todo.textContent = `À faire : isoler ${machines.join(", ")}.`
-      + (attacks.length > 1 ? ` ${attacks.length} attaques en cours.` : "")
-      + (doubts.length ? ` Jev hésite sur ${plural(doubts.length, "autre activité")}.` : "");
-  } else if (level === "suspect") {
-    h.textContent = `Jev s'interroge sur ${plural(doubts.length, "activité")}`;
-    why.textContent = `La plus suspecte : ${doubts[0].letter} « ${doubts[0].last.name} » à ${pct(doubts[0].last.p)}. Ni clairement une attaque, ni clairement du bruit.`;
-    todo.textContent = "À faire : un analyste vérifie ces activités.";
-  } else if (level === "watch") {
-    h.textContent = "Rien d'alarmant pour l'instant";
-    why.textContent = `${plural(judged().length, "activité")} jugée(s) par Jev : tout ressemble à du bruit de fond Windows.`;
-    todo.textContent = "";
-  } else {
-    h.textContent = "Aucune activité à juger pour l'instant";
-    why.textContent = "Les alertes arrivent ; le correlator les regroupe avant de demander l'avis de Jev.";
-    todo.textContent = "";
+
+// --- Incident : activité suivie ------------------------------------------------------
+function gaugeSvg(e) {
+  const W = 340, lo = S.meta.investigate_min, hi = S.meta.contain_min, x = p => p * W;
+  const zones = [[0, lo, "--noise-2"], [lo, hi, "--warn"], [hi, 1, "--crit"]];
+  const parts = [];
+  for (const [a, b, col] of zones) {
+    parts.push(`<rect x="${x(a) + 1}" y="6" width="${x(b) - x(a) - 2}" height="10" rx="3" fill="${css(col)}" opacity=".18"/>`);
+    if (e.p > a) parts.push(`<rect x="${x(a) + 1}" y="6" width="${Math.max(0, x(Math.min(e.p, b)) - x(a) - 2)}" height="10" rx="3" fill="${css(col)}"/>`);
   }
-  const latest = document.getElementById("latest"); latest.textContent = "";
-  const last = M.moments.reduce((a, b) => (!a || b.t >= a.t ? b : a), null);
-  if (last) { latest.appendChild(el("span", "time", fmtT(last.t))); latest.appendChild(el("span", null, last.text)); }
+  parts.push(`<path d="M${x(e.p) - 5},0 L${x(e.p) + 5},0 L${x(e.p)},5 z" fill="${css("--text")}"/>`);
+  parts.push(`<text x="0" y="32" style="font-size:10.5px">bruit &lt;${Math.round(lo * 100)} %</text>`);
+  parts.push(`<text x="${x((lo + hi) / 2)}" y="32" text-anchor="middle" style="font-size:10.5px">doute ${Math.round(lo * 100)}–${Math.round(hi * 100)} %</text>`);
+  parts.push(`<text x="${W}" y="32" text-anchor="end" style="font-size:10.5px">intrusion ≥${Math.round(hi * 100)} %</text>`);
+  return `<svg viewBox="0 0 ${W} 36" aria-hidden="true">${parts.join("")}</svg>`;
 }
-function renderPipeline() {
-  const th = threats(), attacks = th.filter(c => c.last.kind === "attack").length, doubts = th.length - attacks;
-  document.getElementById("n-alerts").textContent = num(M.alerts);
-  document.getElementById("n-groups").textContent = num(liveClusters().length);
-  document.getElementById("n-judged").textContent = num(judged().length);
-  document.getElementById("n-todo").textContent = num(th.length);
-  document.getElementById("n-split").textContent = `${plural(attacks, "attaque")} · ${plural(doubts, "doute")}`;
+function killChainSvg(e) {
+  const W = 340, n = TACTICS.length, gap = 3, sw = (W - gap * (n - 1)) / n;
+  const lit = tacticsOf(e), stage = STAGE_TACTIC[e.stage], col = kindColor(e.kind);
+  const parts = [];
+  TACTICS.forEach(([key, name], i) => {
+    const x = i * (sw + gap), on = lit.has(key);
+    parts.push(`<rect x="${x}" y="2" width="${sw}" height="12" rx="3" fill="${on ? col : css("--line")}"><title>${esc(name)}${on ? " (observée)" : ""}</title></rect>`);
+    if (key === stage) parts.push(`<path d="M${x + sw / 2},18 l4,4 -4,4 -4,-4z" fill="${css("--text")}"><title>Stade estimé par Jev : ${esc(name)}</title></path>`);
+  });
+  return `<svg viewBox="0 0 ${W} 28" aria-hidden="true">${parts.join("")}</svg>`;
+}
+function renderIncident() {
+  const lvl = situationLevel();
+  $("incident").style.setProperty("--status-c", `var(${{ attack: "--crit", suspect: "--warn", watch: "--ok", wait: "--text-3" }[lvl]})`);
+  $("status").className = "status" + (lvl === "attack" ? " live" : "");
+  $("status-text").textContent = { attack: "Attaque en cours", suspect: "Doute · à vérifier", watch: "Surveillance", wait: "En attente" }[lvl];
+  $("inc-mode").textContent = S.mode === "live" ? "DIRECT" : (S.playing ? `REJEU ×${S.speed}` : "EN PAUSE");
+  const box = $("focus"); box.textContent = "";
+  const c = focusCluster();
+  if (!c) {
+    const calm = el("div", "calm");
+    calm.appendChild(el("b", null, lvl === "wait" ? "Corrélation en cours" : "Rien d'alarmant"));
+    calm.appendChild(document.createTextNode(lvl === "wait"
+      ? "Les alertes arrivent ; le correlator les regroupe en activités avant de demander l'avis de Jev."
+      : `${plural(judged().length, "activité")} jugée${judged().length > 1 ? "s" : ""} par Jev, toutes sous le seuil de doute (${pct(S.meta.investigate_min)}).`));
+    box.appendChild(calm);
+    return;
+  }
+  const e = c.last;
+  box.appendChild(el("div", "eyebrow", S.selected ? "Activité sélectionnée" : e.kind === "attack" ? "Incident principal" : "Activité la plus suspecte"));
+  const title = el("div", "focus-title"); title.appendChild(letterEl(c)); title.appendChild(el("span", null, e.name)); box.appendChild(title);
+  const users = [...c.users];
+  box.appendChild(el("div", "focus-path", hostPath(c).join(" → ") + (users.length ? "  ·  compte " + users.slice(0, 2).join(", ") : "")));
+
+  const g = el("div", "gauge");
+  const gh = el("div", "gauge-head"); gh.appendChild(el("span", "eyebrow", "Confiance de Jev (calibrée)"));
+  const gp = el("span", "gauge-p", pct(e.p)); gp.style.color = kindColor(e.kind); gh.appendChild(gp);
+  g.appendChild(gh); g.appendChild(html("div", null, gaugeSvg(e))); box.appendChild(g);
+  if (e.doubt) {
+    const d = el("div", "doubt-box"); d.appendChild(el("span", "qmark", "?"));
+    d.appendChild(el("span", null, `Jev hésite : ${pct(e.p)}, entre les deux seuils. Ni clairement une attaque, ni clairement du bruit : un analyste tranche.`));
+    box.appendChild(d);
+  }
+
+  const kc = el("div", "kc"); kc.appendChild(el("div", "eyebrow", "Kill chain : tactiques MITRE observées"));
+  kc.appendChild(html("div", null, killChainSvg(e)));
+  const lit = tacticsOf(e);
+  kc.appendChild(el("div", "kc-cap", TACTICS.filter(([k]) => lit.has(k)).map(([, n]) => n).join(" → ") || "aucune technique MITRE"));
+  if (e.stage && STAGE_LABEL[e.stage]) kc.appendChild(el("div", "kc-stage", "◆ stade le plus avancé selon Jev : " + STAGE_LABEL[e.stage]));
+  box.appendChild(kc);
+
+  const act = el("div", "action"); act.style.setProperty("--ac", `var(${ACTIONS[e.action].color})`);
+  act.appendChild(html("span", "ic", ICONS[e.action]));
+  const at = el("div");
+  const hosts = hostPath(c).join(", ");
+  const what = { contain: ["Contenir", `Isoler ${hosts}` + (e.actions && e.actions.includes("escalate") ? " · escalader vers l'IR" : "")],
+    escalate: ["Escalader", "Ouvrir un incident de réponse"], investigate: ["Investiguer", "Un analyste vérifie l'activité" + (e.priority != null ? ` (priorité ${dec2(e.priority)}/4)` : "")],
+    monitor: ["Surveiller", "Aucune action, l'activité reste suivie"] }[e.action];
+  at.appendChild(el("b", null, "Recommandation : " + what[0])); at.appendChild(el("span", null, what[1]));
+  act.appendChild(at); box.appendChild(act);
+
+  box.appendChild(el("div", "focus-foot", `${plural(c.alerts, "alerte")} corrélée${c.alerts > 1 ? "s" : ""} · repérée à ${fmtT(c.spottedT ?? e.t)} · décision v${e.version} · ${e.latency_ms} ms`));
+  if (e.truth !== undefined) box.appendChild(el("div", "truth focus-foot " + (e.truth ? "yes" : "no"), e.truth ? "✓ Vérité terrain : actions réelles de l'attaquant" : "✗ Vérité terrain : aucun indicateur (fausse alerte)"));
 }
 
-// --- Graphe de propagation ------------------------------------------------------------
-// Rangée centrale : les machines, dans l'ordre où elles apparaissent. Au-dessus : les activités
-// suspectes ou malveillantes, reliées aux machines qu'elles touchent (épaisseur = part des
-// alertes). En dessous : les flèches de propagation (machine d'avant -> nouvelle machine) avec
-// l'heure et la technique de la première alerte sur la nouvelle machine. Tout en bas : le bruit.
-const G = { pillW: 240, pillH: 50, rowGap: 14, r: 44, margin: 24 };
+// --- Graphe d'attaque -------------------------------------------------------------------
+// Machines en zigzag (ordre d'apparition), lettres des activités au-dessus de chaque machine,
+// flèches de propagation (machine d'avant -> nouvelle machine), comptes partagés en bas.
 function renderGraph() {
-  const svg = document.getElementById("graph"), wrap = document.getElementById("g-wrap");
-  if (!S.meta) return;
-  const W = Math.max(760, wrap.clientWidth);
-  const hosts = [...M.hosts.entries()].sort((a, b) => a[1].firstT - b[1].firstT).map(([h]) => h);
-  const th = threats();
-  const perRow = Math.max(1, Math.floor((W - 2 * G.margin + 12) / (G.pillW + 12)));
-  const rows = Math.min(3, Math.max(1, Math.ceil(Math.min(th.length, MAX_PILLS) / perRow)));
-  const rowsY = Array.from({ length: rows }, (_, i) => 6 + i * (G.pillH + G.rowGap));
-  const hostY = rowsY.at(-1) + G.pillH + 92, arcY = hostY + G.r + 6;
-  const size = H => { svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("width", W); svg.setAttribute("height", H); };
-  const cCrit = css("--st-contain"), cWarn = css("--st-investigate"), cMuted = css("--st-monitor"), surf = css("--surface"), ink = css("--ink"), ink2 = css("--ink-2");
-  const parts = [`<defs>${[["crit", cCrit], ["warn", cWarn]].map(([id, c]) =>
-    `<marker id="arrow-${id}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="${c}"/></marker>`).join("")}</defs>`];
+  const svg = $("graph"), wrap = $("g-wrap");
+  const W = Math.max(600, wrap.clientWidth), H = 440;
+  const hosts = hostOrder(), th = threats(), sel = focusCluster();
+  const crit = css("--crit"), warn = css("--warn"), text = css("--text"), text2 = css("--text-2"), text3 = css("--text-3");
+  const panel = css("--panel"), panel2 = css("--panel-2"), line2 = css("--line-2"), onS = css("--on-status");
+  const parts = [`<defs>${[["crit", crit], ["warn", warn]].map(([id, c]) =>
+    `<marker id="ar-${id}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="${c}"/></marker>`).join("")}</defs>`];
+  const size = h => { svg.setAttribute("viewBox", `0 0 ${W} ${h}`); svg.setAttribute("width", W); svg.setAttribute("height", h); };
   if (!hosts.length) {
-    parts.push(`<text x="${W / 2}" y="${hostY}" text-anchor="middle" style="font-size:13px">En attente des premières alertes…</text>`);
-    size(hostY + 40); svg.innerHTML = parts.join(""); return;
+    parts.push(`<text x="${W / 2}" y="${H / 2}" text-anchor="middle" style="font-size:13px">En attente des premières alertes…</text>`);
+    size(H); svg.innerHTML = parts.join(""); return;
   }
-  const span = (W - 2 * G.margin) / hosts.length;
-  const hx = {}; hosts.forEach((h, i) => hx[h] = G.margin + (i + 0.5) * span);
-  const sel = S.selected;
-  const fadeOf = id => (sel && sel !== id ? 0.15 : 1);
+  const maxA = Math.max(...hosts.map(h => M.hosts.get(h).alerts));
+  const padX = 80, n = hosts.length, span = n > 1 ? (W - 2 * padX) / (n - 1) : 0;
+  const pos = {};
+  hosts.forEach((h, i) => pos[h] = { x: n > 1 ? padX + i * span : W / 2, y: i % 2 ? 150 : 250, r: 26 + 18 * Math.sqrt(M.hosts.get(h).alerts / maxA) });
+  const isFaded = c => sel && S.selected && c.id !== sel.id;
+  const touchingOf = h => th.filter(c => c.hostCounts.has(h));
+  const BS = 20, BG = 4, PER = 6;  // lettres : taille, écart, nombre par rangée
+  const blocks = hosts.map(h => {
+    const p = pos[h], rows = Math.ceil(Math.min(12, touchingOf(h).length) / PER), half = Math.max(p.r + 8, 70);
+    return { x1: p.x - half, x2: p.x + half, y1: p.y - p.r - 14 - rows * (BS + BG) - (rows ? 30 : 0), y2: p.y + p.r + 50 };
+  });
 
-  // Placement des étiquettes : au plus près du centre de leurs machines, sans chevauchement.
-  // Au plus MAX_PILLS étiquettes (les plus graves d'abord) : le graphe doit se lire d'un coup d'œil.
-  const placed = []; let hidden = Math.max(0, th.length - MAX_PILLS);
-  for (const c of th.slice(0, MAX_PILLS)) {
-    const hs = [...c.hostCounts.keys()].filter(h => hx[h] !== undefined);
-    if (!hs.length) continue;
-    const anchor = hs.reduce((s, h) => s + hx[h], 0) / hs.length;
-    let spot = null;
-    for (const k of [0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5]) {
-      for (const y of rowsY) {
-        const x = Math.min(W - G.margin - G.pillW / 2, Math.max(G.margin + G.pillW / 2, anchor + k * (G.pillW + 12)));
-        if (!placed.some(p => p.y === y && Math.abs(p.x - x) < G.pillW + 10)) { spot = { x, y }; break; }
-      }
-      if (spot) break;
+  // 1. Comptes partagés entre au moins deux machines (le lien qui a servi à corréler).
+  const accounts = new Map();
+  for (const c of th) for (const u of c.users) {
+    const hs = hosts.filter(h => M.hosts.get(h).users.has(u) && c.hostCounts.has(h));
+    if (!accounts.has(u)) accounts.set(u, new Set());
+    hs.forEach(h => accounts.get(u).add(h));
+  }
+  const accBoxes = [];
+  for (const [u, hs] of accounts) {
+    if (hs.size < 2) continue;
+    const xs = [...hs].map(h => pos[h].x), w = u.length * 7 + 36;
+    let ax = xs.reduce((a, b) => a + b, 0) / xs.length;
+    while (accBoxes.some(b => Math.abs(b.x - ax) < (b.w + w) / 2 + 8)) ax += 40;
+    const ay = H - 30;
+    accBoxes.push({ x: ax, w });
+    for (const h of hs) {
+      const p = pos[h], side = ax >= p.x ? 1 : -1;
+      const tx = p.x + side * p.r * 0.72, ty = p.y + p.r * 0.72;
+      parts.push(`<path d="M${ax},${ay - 12} C${ax},${ay - 60} ${tx + side * 30},${ty + 30} ${tx},${ty}" fill="none" stroke="${text3}" stroke-width="1.3" stroke-dasharray="3 4"/>`);
     }
-    if (spot) placed.push({ c, hs, x: spot.x, y: spot.y }); else hidden += 1;
+    parts.push(`<g class="hit" data-account="${esc(u)}"><rect x="${ax - w / 2}" y="${ay - 12}" width="${w}" height="24" rx="12" fill="${panel2}" stroke="${line2}"/>`);
+    parts.push(`<circle cx="${ax - w / 2 + 14}" cy="${ay - 3}" r="3.2" fill="${text2}"/><path d="M${ax - w / 2 + 8.5},${ay + 6} a5.5,5 0 0 1 11,0" fill="${text2}"/>`);
+    parts.push(`<text x="${ax - w / 2 + 25}" y="${ay + 4}" style="fill:${text};font-family:var(--mono);font-size:11.5px">${esc(u)}</text></g>`);
   }
 
-  // Liens activité -> machines
-  for (const p of placed) {
-    const color = kindColor(p.c.last.kind), fade = fadeOf(p.c.id);
-    for (const h of p.hs) {
-      const share = p.c.hostCounts.get(h) / p.c.alerts;
-      const x1 = p.x, y1 = p.y + G.pillH, x2 = hx[h], y2 = hostY - G.r;
-      parts.push(`<path d="M${x1},${y1} C${x1},${(y1 + y2) / 2} ${x2},${(y1 + y2) / 2} ${x2},${y2}" fill="none" stroke="${color}" stroke-width="${1.5 + 4 * share}" stroke-linecap="round" opacity="${0.75 * fade}"/>`);
-    }
-  }
-
-  // Flèches de propagation (sous les machines)
-  // Une étiquette qui en chevaucherait une autre fait plonger son arc un cran plus bas.
-  const arcLabels = [];
-  for (const c of placed.map(p => p.c)) {
-    const ordered = [...c.hostFirst.entries()].filter(([h]) => hx[h] !== undefined).sort((a, b) => a[1].t - b[1].t);
-    const attack = c.last.kind === "attack", color = attack ? cCrit : cWarn, fade = fadeOf(c.id);
+  // 2. Flèches de propagation, étiquettes sans chevauchement (l'arc se creuse si besoin).
+  const labels = [], arrows = [];
+  for (const c of th.slice(0, MAX_ACTS)) {
+    const ordered = [...c.hostFirst.entries()].filter(([h]) => pos[h]).sort((a, b) => a[1].t - b[1].t);
+    const attack = c.last.kind === "attack", col = attack ? crit : warn, fade = isFaded(c) ? 0.15 : 1;
     for (let i = 1; i < ordered.length; i++) {
-      const [a] = ordered[i - 1], [b, info] = ordered[i];
-      const dir = hx[b] > hx[a] ? 1 : -1, sx = hx[a] + dir * 12, ex = hx[b] - dir * 12;
-      const txt = `${c.letter} · ${fmtT(info.t)}${info.technique ? " · " + info.technique : ""}`;
-      const lx = (sx + ex) / 2, w = txt.length * 6.3 + 14;
-      let depth = 30;
-      while (depth < 200 && arcLabels.some(l => Math.abs(l.y - (arcY + depth + 4)) < 22 && Math.abs(l.x - lx) < (l.w + w) / 2 + 6)) depth += 26;
-      parts.push(`<path d="M${sx},${arcY} Q${(sx + ex) / 2},${arcY + depth * 2} ${ex},${arcY}" fill="none" stroke="${color}" stroke-width="${attack ? 3 : 2}" ${attack ? "" : 'stroke-dasharray="6 4"'} marker-end="url(#arrow-${attack ? "crit" : "warn"})" opacity="${fade}"/>`);
-      arcLabels.push({ x: lx, y: arcY + depth + 4, w, txt, fade, color });
+      const [a] = ordered[i - 1], [b, info] = ordered[i], A = pos[a], B = pos[b];
+      const dx = B.x - A.x, dy = B.y - A.y, len = Math.hypot(dx, dy) || 1;
+      let nx = -dy / len, ny = dx / len; if (ny < 0) { nx = -nx; ny = -ny; }
+      const txt = `${c.letter} · ${fmtT(info.t)}${info.technique ? " · " + info.technique : ""}`, tw = txt.length * 6.7 + 16;
+      // L'arc se creuse d'un côté puis de l'autre jusqu'à ce que son étiquette ne chevauche ni
+      // une autre étiquette, ni une machine (cercle, lettres, nom).
+      const arc = bend => {
+        const mx = (A.x + B.x) / 2 + nx * bend * 2, my = (A.y + B.y) / 2 + ny * bend * 2;
+        const u0 = Math.hypot(mx - A.x, my - A.y) || 1, u1 = Math.hypot(mx - B.x, my - B.y) || 1;
+        const sx = A.x + (mx - A.x) / u0 * (A.r + 5), sy = A.y + (my - A.y) / u0 * (A.r + 5);
+        const ex = B.x + (mx - B.x) / u1 * (B.r + 8), ey = B.y + (my - B.y) / u1 * (B.r + 8);
+        return { sx, sy, mx, my, ex, ey, lx: 0.25 * sx + 0.5 * mx + 0.25 * ex, ly: 0.25 * sy + 0.5 * my + 0.25 * ey };
+      };
+      const free = g => !labels.some(l => Math.abs(l.y - g.ly) < 22 && Math.abs(l.x - g.lx) < (l.w + tw) / 2 + 6)
+        && !blocks.some(b => g.lx + tw / 2 > b.x1 && g.lx - tw / 2 < b.x2 && g.ly + 10 > b.y1 && g.ly - 10 < b.y2)
+        && g.ly > 14;
+      let geo = null;
+      for (let k = 0; k < 12 && !geo; k++) for (const sgn of [1, -1]) { const g = arc(sgn * (22 + 22 * k)); if (free(g)) { geo = g; break; } }
+      geo = geo || arc(22);
+      labels.push({ x: geo.lx, y: geo.ly, w: tw, txt, col, fade, id: c.id });
+      arrows.push(`<path d="M${geo.sx},${geo.sy} Q${geo.mx},${geo.my} ${geo.ex},${geo.ey}" fill="none" stroke="${col}" stroke-width="${attack ? 2.6 : 1.8}" ${attack ? "" : 'stroke-dasharray="6 4"'} marker-end="url(#ar-${attack ? "crit" : "warn"})" opacity="${fade}"/>`);
     }
   }
-  for (const l of arcLabels) {
-    parts.push(`<g opacity="${l.fade}"><rect x="${l.x - l.w / 2}" y="${l.y - 10}" width="${l.w}" height="20" rx="10" fill="${surf}" stroke="${l.color}"/>`);
-    parts.push(`<text x="${l.x}" y="${l.y + 4}" text-anchor="middle" style="fill:${ink};font-size:11.5px;font-weight:600">${esc(l.txt)}</text></g>`);
-  }
+  parts.push(...arrows);
 
-  // Machines et bruit de fond (le bruit passe sous l'arc le plus profond)
-  const noiseY = arcLabels.reduce((m, l) => Math.max(m, l.y + 10), arcY) + 34;
-  size(noiseY + 30);
+  // 3. Machines : anneau = pire statut, lettres des activités au-dessus, « ? » si Jev hésite.
   const noiseByHost = {};
-  for (const c of judged().filter(c => c.last.kind === "noise")) for (const h of c.hostCounts.keys()) noiseByHost[h] = (noiseByHost[h] || 0) + 1;
+  for (const c of judged()) if (c.last.kind === "noise") for (const h of c.hostCounts.keys()) noiseByHost[h] = (noiseByHost[h] || 0) + 1;
   for (const h of hosts) {
+    const p = pos[h], info = M.hosts.get(h);
     const touching = th.filter(c => c.hostCounts.has(h));
     const worst = touching.some(c => c.last.kind === "attack") ? "attack" : touching.length ? "suspect" : null;
-    const stroke = worst === "attack" ? cCrit : worst === "suspect" ? cWarn : css("--axis");
-    const info = M.hosts.get(h), x = hx[h];
-    parts.push(`<g class="g-node" data-host="${esc(h)}">`);
-    if (worst === "attack") parts.push(`<circle cx="${x}" cy="${hostY}" r="${G.r + 8}" fill="${cCrit}" opacity=".15"/>`);
-    parts.push(`<circle cx="${x}" cy="${hostY}" r="${G.r}" fill="${surf}" stroke="${stroke}" stroke-width="${worst ? 3 : 1.5}"/>`);
-    parts.push(`<text x="${x}" y="${hostY - 3}" text-anchor="middle" style="fill:${ink};font-size:12px;font-weight:700">${esc(h)}</text>`);
-    parts.push(`<text x="${x}" y="${hostY + 13}" text-anchor="middle">${plural(info.alerts, "alerte")}</text>`);
-    if (worst) {
-      const tag = worst === "attack" ? "COMPROMISE" : "SUSPECTE";
-      parts.push(`<text x="${x + G.r + 8}" y="${hostY - G.r + 6}" style="fill:${worst === "attack" ? cCrit : ink2};font-size:10.5px;font-weight:800;letter-spacing:.06em">${tag}</text>`);
-    }
+    const ring = worst === "attack" ? crit : worst === "suspect" ? warn : line2;
+    parts.push(`<g class="hit" data-host="${esc(h)}">`);
+    if (worst === "attack") parts.push(`<circle class="pulse-halo" cx="${p.x}" cy="${p.y}" r="${p.r + 12}" fill="${crit}" opacity=".25"/>`);
+    parts.push(`<circle cx="${p.x}" cy="${p.y}" r="${p.r}" fill="${panel2}" stroke="${ring}" stroke-width="${worst ? 2.6 : 1.4}"/>`);
+    // pictogramme de poste
+    parts.push(`<rect x="${p.x - 11}" y="${p.y - 10}" width="22" height="14" rx="2.5" fill="none" stroke="${worst ? ring : text3}" stroke-width="1.6"/><path d="M${p.x - 6},${p.y + 9}h12M${p.x},${p.y + 4}v5" stroke="${worst ? ring : text3}" stroke-width="1.6" stroke-linecap="round"/>`);
+    parts.push(`<text class="halo-text" x="${p.x}" y="${p.y + p.r + 17}" text-anchor="middle" style="fill:${text};font-family:var(--mono);font-size:12.5px;font-weight:600">${esc(h)}</text>`);
+    const st = worst === "attack" ? ["compromise", crit] : worst === "suspect" ? ["suspecte", warn] : ["saine", text3];
+    parts.push(`<text class="halo-text" x="${p.x}" y="${p.y + p.r + 31}" text-anchor="middle" style="fill:${st[1]};font-size:11px;font-weight:600">● ${st[0]}</text>`);
+    parts.push(`<text class="halo-text" x="${p.x}" y="${p.y + p.r + 45}" text-anchor="middle" style="font-size:10.5px">${plural(info.alerts, "alerte")}${noiseByHost[h] ? " · " + noiseByHost[h] + " bruit" : ""}</text>`);
     parts.push(`</g>`);
-    const n = noiseByHost[h] || 0;
-    if (n) {
-      const shown = Math.min(n, 14);
-      parts.push(`<g class="g-node" data-noise="${esc(h)}">`);
-      for (let i = 0; i < shown; i++) parts.push(`<circle cx="${x - (shown - 1) * 5 + i * 10}" cy="${noiseY}" r="3.5" fill="${cMuted}" opacity=".7"/>`);
-      parts.push(`<text x="${x}" y="${noiseY + 20}" text-anchor="middle">${plural(n, "groupe")} de bruit</text>`);
-      parts.push(`<rect x="${x - 80}" y="${noiseY - 10}" width="160" height="36" fill="transparent"/></g>`);
+    // lettres des activités, rangées de 6 au plus au-dessus de la machine
+    const per = PER, bs = BS, gap = BG, shown = touching.slice(0, 12);
+    let topRight = { x: p.x, y: p.y - p.r - 14 };
+    shown.forEach((c, i) => {
+      const row = Math.floor(i / per), inRow = Math.min(per, shown.length - row * per);
+      const bx = p.x - (inRow * bs + (inRow - 1) * gap) / 2 + (i % per) * (bs + gap), by = p.y - p.r - 14 - bs - row * (bs + gap);
+      if (by <= topRight.y) topRight = { x: Math.max(by < topRight.y ? 0 : topRight.x, bx + bs), y: by };
+      const fade = isFaded(c) ? 0.25 : 1, outline = S.selected && sel && c.id === sel.id;
+      parts.push(`<g class="hit" data-cluster="${c.id}" opacity="${fade}"><rect x="${bx}" y="${by}" width="${bs}" height="${bs}" rx="5" fill="${kindColor(c.last.kind)}" ${outline ? `stroke="${text}" stroke-width="2"` : ""}/>`);
+      parts.push(`<text x="${bx + bs / 2}" y="${by + 14}" text-anchor="middle" style="fill:${onS};font-family:var(--mono);font-size:11px;font-weight:700">${c.letter}</text></g>`);
+    });
+    if (touching.length > 12) parts.push(`<text x="${p.x + p.r + 8}" y="${p.y - p.r - 20}" style="font-size:10.5px">+${touching.length - 12}</text>`);
+    const doubts = touching.filter(c => c.last.doubt).length;
+    if (doubts) {
+      // bulle de pensée au-dessus des lettres : c'est ici que Jev se pose des questions
+      const w = doubts > 1 ? 40 : 26, qx = topRight.x + 8, qy = topRight.y - 14;
+      parts.push(`<circle cx="${qx - 4}" cy="${qy + 12}" r="2.2" fill="${warn}"/><circle cx="${qx - 9}" cy="${qy + 17}" r="1.5" fill="${warn}"/>`);
+      parts.push(`<g class="hit" data-doubt="${esc(h)}"><rect class="doubt-ring" x="${qx - 4}" y="${qy - 15}" width="${w + 8}" height="30" rx="15" fill="none" stroke="${warn}" stroke-width="1.5"/>`);
+      parts.push(`<rect x="${qx}" y="${qy - 11}" width="${w}" height="22" rx="11" fill="${warn}"/>`);
+      parts.push(`<text x="${qx + w / 2}" y="${qy + 4.5}" text-anchor="middle" style="fill:${onS};font-family:var(--mono);font-size:12px;font-weight:700">?${doubts > 1 ? "×" + doubts : ""}</text></g>`);
     }
   }
 
-  // Étiquettes d'activité (au-dessus des liens)
-  const truth = document.body.classList.contains("show-truth");
-  for (const p of placed) {
-    const c = p.c, e = c.last, color = kindColor(e.kind), x = p.x - G.pillW / 2, y = p.y;
-    // Dans le graphe, la couleur et la lettre disent déjà la nature : on garde le trajet (machines).
-    const path = hostPath(c).join(" → ");
-    const name = path.length > 23 ? path.slice(0, 22) + "…" : path;
-    const sub = e.kind === "attack" ? `Intrusion · ${pct(e.p)} · contenir` : `Suspect · ${pct(e.p)} · Jev hésite`;
-    const verdict = truth && e.truth !== undefined ? (e.truth ? " · ✓ réelle" : " · ✗ fausse alerte") : "";
-    parts.push(`<g class="g-node" data-cluster="${c.id}" opacity="${sel && sel !== c.id ? 0.3 : 1}">`);
-    parts.push(`<rect x="${x}" y="${y}" width="${G.pillW}" height="${G.pillH}" rx="10" fill="${surf}" stroke="${color}" stroke-width="${sel === c.id ? 3.5 : e.kind === "attack" ? 2.5 : 1.5}"/>`);
-    parts.push(`<rect x="${x + 9}" y="${y + 12}" width="26" height="26" rx="6" fill="${color}"/>`);
-    parts.push(`<text x="${x + 22}" y="${y + 30}" text-anchor="middle" style="fill:${css("--on-status")};font-size:14px;font-weight:800">${c.letter}</text>`);
-    parts.push(`<text x="${x + 44}" y="${y + 21}" style="fill:${ink};font-size:12.5px;font-weight:700">${esc(name)}</text>`);
-    parts.push(`<text x="${x + 44}" y="${y + 38}" style="fill:${ink2};font-size:11.5px">${esc(sub + verdict)}</text>`);
-    if (e.doubt) {
-      const qx = x + G.pillW - 3, qy = y + 3;
-      parts.push(`<circle class="g-doubt" cx="${qx}" cy="${qy}" r="14" fill="none" stroke="${cWarn}" stroke-width="2"/>`);
-      parts.push(`<circle cx="${qx}" cy="${qy}" r="10" fill="${cWarn}" stroke="${surf}" stroke-width="2"/>`);
-      parts.push(`<text x="${qx}" y="${qy + 4.5}" text-anchor="middle" style="fill:${css("--on-status")};font-size:13px;font-weight:800">?</text>`);
-    }
-    parts.push(`</g>`);
+  // 4. Étiquettes des flèches, au premier plan
+  for (const l of labels) {
+    parts.push(`<g class="hit" data-cluster="${l.id}" opacity="${l.fade}"><rect x="${l.x - l.w / 2}" y="${l.y - 10}" width="${l.w}" height="20" rx="10" fill="${panel}" stroke="${l.col}"/>`);
+    parts.push(`<text x="${l.x}" y="${l.y + 4}" text-anchor="middle" style="fill:${text};font-family:var(--mono);font-size:11px;font-weight:500">${esc(l.txt)}</text></g>`);
   }
-  if (hidden) parts.push(`<text x="${W - G.margin}" y="${hostY - G.r - 30}" text-anchor="end">+${plural(hidden, "autre activité")} moins graves (liste ci-dessous)</text>`);
+  size(Math.max(H, ...labels.map(l => l.y + 24)));
   svg.innerHTML = parts.join("");
 }
-function renderGraphLegend() {
-  const box = document.getElementById("g-legend"); box.textContent = "";
-  const add = (node, text) => { const k = el("span", "key"); k.appendChild(node); k.appendChild(document.createTextNode(text)); box.appendChild(k); };
-  const sw = (c, round) => { const s = el("span", "sw"); s.style.borderColor = `var(${c})`; if (round) { s.style.borderRadius = "50%"; s.style.background = `var(${c})`; } return s; };
-  add(sw("--st-contain"), "Intrusion : Jev est sûr");
-  add(sw("--st-investigate"), "Activité suspecte");
-  add(el("span", "q", "?"), "Jev hésite");
-  const ln = el("span", "line"); ln.style.background = "var(--st-contain)"; add(ln, "Propagation (heure · technique)");
-  add(sw("--st-monitor", true), "Bruit de fond");
+function renderActs() {
+  const box = $("acts"); box.textContent = "";
+  const th = threats(), cur = focusCluster();
+  box.appendChild(el("div", "eyebrow", th.length ? `${plural(th.length, "activité")} à traiter` : "Activités à traiter"));
+  if (!th.length) { box.appendChild(el("div", "more", judged().length ? "Rien : tout ce qui a été jugé ressemble à du bruit de fond." : "Pas encore d'activité jugée.")); return; }
+  for (const c of th.slice(0, MAX_ACTS)) {
+    const e = c.last;
+    const it = el("div", "act" + (S.selected && cur && cur.id === c.id ? " sel" : ""));
+    it.tabIndex = 0; it.setAttribute("role", "button");
+    it.addEventListener("click", () => select(c.id));
+    it.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(c.id); } });
+    it.appendChild(letterEl(c));
+    const nm = el("span", "nm", e.name);
+    if (e.truth !== undefined) nm.appendChild(el("span", "truth-i " + (e.truth ? "yes" : "no"), e.truth ? " ✓ réelle" : " ✗ fausse alerte"));
+    it.appendChild(nm);
+    const p = el("span", "p"); if (e.doubt) p.appendChild(el("span", "qmark", "?")); p.appendChild(document.createTextNode(pct(e.p))); it.appendChild(p);
+    const bar = el("div", "bar"); const f = el("div"); f.style.width = e.p * 100 + "%"; f.style.background = kindColor(e.kind); bar.appendChild(f); it.appendChild(bar);
+    box.appendChild(it);
+  }
+  if (th.length > MAX_ACTS) box.appendChild(el("div", "more", `+ ${plural(th.length - MAX_ACTS, "autre")} dans la vue analyste`));
 }
 
-// --- Récit : activités nommées et fil des moments clés ---------------------------------------
-function renderStories() {
-  const box = document.getElementById("stories"); box.textContent = "";
-  const th = threats();
-  if (!th.length) { box.appendChild(el("div", "empty", judged().length ? "Aucune activité suspecte : tout ce qui a été jugé ressemble à du bruit de fond." : "Pas encore d'activité jugée.")); return; }
-  const shown = th.filter((c, i) => i < MAX_STORIES || c.id === S.selected);
-  for (const c of shown) {
-    const e = c.last;
-    const card = el("div", "story " + e.kind + (S.selected === c.id ? " selected" : ""));
-    card.tabIndex = 0; card.setAttribute("role", "button");
-    card.addEventListener("click", () => select(c.id));
-    card.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(c.id); } });
-    const top = el("div", "top"); top.appendChild(letterEl(c)); top.appendChild(el("span", "nm", e.name)); card.appendChild(top);
-    const pl = el("div", "pline"); pl.appendChild(el("span", "p", pct(e.p))); pl.appendChild(badge(e.action)); card.appendChild(pl);
-    const meter = el("div", "meter"); const f = el("div"); f.style.width = e.p * 100 + "%"; f.style.background = kindColor(e.kind); meter.appendChild(f); card.appendChild(meter);
-    card.appendChild(el("div", "path", hostPath(c).join(" → ") + (c.users.size ? " · compte " + [...c.users].slice(0, 3).join(", ") : "")));
-    if (e.summary && e.summary.length) { const t = el("div", "tech"); e.summary.forEach(s => t.appendChild(el("span", null, s))); card.appendChild(t); }
-    if (e.doubt) card.appendChild(el("div", "doubt", `? Jev hésite : ${pct(e.p)}, entre le seuil d'investigation (${pct(S.meta.investigate_min)}) et celui de confinement (${pct(S.meta.contain_min)}).`));
-    card.appendChild(el("div", "when", `${num(c.alerts)} alertes · repérée à ${fmtT(c.spottedT ?? e.t)} · décision v${e.version}`));
-    if (e.truth !== undefined) card.appendChild(el("div", "truth " + (e.truth ? "yes" : "no"), e.truth ? "✓ Vérité : actions réelles de l'attaquant" : "✗ Vérité : aucun indicateur d'attaque (fausse alerte)"));
-    box.appendChild(card);
+// --- Chronologie par machine ------------------------------------------------------
+function renderLanes() {
+  const svg = $("lanes"), wrap = $("l-wrap");
+  const W = Math.max(760, wrap.clientWidth), hosts = hostOrder();
+  const left = 132, right = 18, top = 30, laneH = 52;
+  const H = top + Math.max(1, hosts.length) * laneH + 4, plotW = W - left - right;
+  const nb = Math.max(60, Math.min(220, Math.floor(plotW / 6))), B = S.meta.duration / nb, bw = plotW / nb;
+  const x = t => left + (t / S.meta.duration) * plotW;
+  const lane = {}; hosts.forEach((h, i) => lane[h] = i);
+  // Comptage par machine et par tranche, selon la nature ACTUELLE de l'activité de chaque alerte.
+  const KI = { noise: 0, suspect: 1, attack: 2 }, kindOfCluster = new Map();
+  const bins = hosts.map(() => Array.from({ length: nb }, () => [0, 0, 0]));
+  for (const a of M.alertLog) {
+    let k = kindOfCluster.get(a.cluster);
+    if (k === undefined) { const c = resolve(a.cluster); k = c && c.last ? KI[c.last.kind] : 0; kindOfCluster.set(a.cluster, k); }
+    bins[lane[a.host]][Math.min(nb - 1, Math.floor(a.t / B))][k] += 1;
   }
-  if (th.length > shown.length) box.appendChild(el("div", "more", `+ ${plural(th.length - shown.length, "autre activité")} : détail dans la vue analyste.`));
+  S.lanes = { left, top, laneH, plotW, nb, B, hosts, bins };
+  const maxT = Math.max(1, ...bins.flat().map(b => b[0] + b[1] + b[2])), hMax = laneH - 26;
+  // échelle logarithmique : une rafale de 400 alertes ne doit pas écraser les 3 alertes d'une attaque
+  const sc = v => v ? Math.max(3, Math.log1p(v) / Math.log1p(maxT) * hMax) : 0;
+  const crit = css("--crit"), warn = css("--warn"), noise = css("--noise"), line = css("--line"), text = css("--text"), onS = css("--on-status");
+  const parts = [`<defs><marker id="lar-crit" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0L10,5L0,10z" fill="${crit}"/></marker>`
+    + `<marker id="lar-warn" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0L10,5L0,10z" fill="${warn}"/></marker></defs>`];
+  // axe du temps : T+ et heure UTC
+  const step = S.meta.duration > 1500 ? 300 : 120;
+  for (let t = 0; t <= S.meta.duration + 1; t += step) {
+    parts.push(`<line x1="${x(t)}" x2="${x(t)}" y1="${top - 4}" y2="${H}" stroke="${line}"/>`);
+    parts.push(`<text x="${x(t) + 4}" y="${top - 10}" style="font-family:var(--mono);font-size:10.5px">${clockAt(t).slice(0, 5)} <tspan style="fill:${css("--text-3")}">+${Math.round(t / 60)} min</tspan></text>`);
+  }
+  const th = threats(), worstOf = h => th.some(c => c.last.kind === "attack" && c.hostCounts.has(h)) ? crit : th.some(c => c.hostCounts.has(h)) ? warn : css("--noise-2");
+  hosts.forEach((h, i) => {
+    const y0 = top + i * laneH, base = y0 + laneH - 6;
+    parts.push(`<line x1="0" x2="${W}" y1="${y0 + laneH}" y2="${y0 + laneH}" stroke="${line}"/>`);
+    parts.push(`<circle cx="22" cy="${y0 + laneH / 2}" r="4" fill="${worstOf(h)}"/>`);
+    parts.push(`<text x="34" y="${y0 + laneH / 2 + 4}" style="fill:${text};font-family:var(--mono);font-size:12px;font-weight:600">${esc(h)}</text>`);
+    const w = Math.max(1, bw - 1.5);
+    bins[i].forEach((b, j) => {
+      const tot = b[0] + b[1] + b[2]; if (!tot) return;
+      const bx = left + j * bw;
+      parts.push(`<rect x="${bx}" y="${base - sc(tot)}" width="${w}" height="${sc(tot)}" rx="1" fill="${noise}"/>`);
+      if (b[2]) { const hh = Math.max(4, sc(b[2])); parts.push(`<rect x="${bx}" y="${base - hh}" width="${w}" height="${hh}" rx="1" fill="${crit}"/>`); }
+      if (b[1]) { const off = b[2] ? Math.max(4, sc(b[2])) : 0, hh = Math.max(4, sc(b[1])); parts.push(`<rect x="${bx}" y="${base - off - hh}" width="${w}" height="${hh}" rx="1" fill="${warn}"/>`); }
+    });
+  });
+  // repérages (lettres) et propagation
+  const marks = [];
+  for (const c of th) {
+    const path = hostPath(c).filter(h => lane[h] !== undefined);
+    if (!path.length || c.spottedT === null) continue;
+    const col = kindColor(c.last.kind), li = lane[path[0]];
+    let mx = x(c.spottedT); while (marks.some(m => m.l === li && Math.abs(m.x - mx) < 17)) mx += 17;
+    marks.push({ l: li, x: mx });
+    const my = top + li * laneH + 11;
+    parts.push(`<g class="hit" data-cluster="${c.id}"><circle cx="${mx}" cy="${my}" r="8" fill="${col}"/><text x="${mx}" y="${my + 3.8}" text-anchor="middle" style="fill:${onS};font-family:var(--mono);font-size:10px;font-weight:700">${c.letter}</text></g>`);
+    const ordered = [...c.hostFirst.entries()].filter(([h]) => lane[h] !== undefined).sort((a, b) => a[1].t - b[1].t);
+    for (let k = 1; k < ordered.length; k++) {
+      const la = lane[ordered[k - 1][0]], lb = lane[ordered[k][0]], tx = x(ordered[k][1].t);
+      const ya = top + la * laneH + laneH / 2, yb = top + lb * laneH + laneH / 2 + (lb > la ? -8 : 8);
+      const attack = c.last.kind === "attack";
+      parts.push(`<path d="M${tx},${ya} L${tx},${yb}" stroke="${col}" stroke-width="${attack ? 2 : 1.5}" ${attack ? "" : 'stroke-dasharray="4 3"'} marker-end="url(#lar-${attack ? "crit" : "warn"})"/>`);
+    }
+  }
+  // tête de lecture (le futur est assombri)
+  const px = x(S.clock);
+  parts.push(`<rect x="${px}" y="${top - 4}" width="${Math.max(0, left + plotW - px)}" height="${H - top + 4}" fill="${css("--bg")}" opacity=".55"/>`);
+  parts.push(`<line x1="${px}" x2="${px}" y1="${top - 6}" y2="${H}" stroke="${css("--accent")}" stroke-width="1.5"/>`);
+  const tl = clockAt(S.clock), tlw = 64, tlx = Math.min(W - tlw - 2, Math.max(left, px - tlw / 2));
+  parts.push(`<rect x="${tlx}" y="2" width="${tlw}" height="18" rx="5" fill="${css("--accent")}"/><text x="${tlx + tlw / 2}" y="15" text-anchor="middle" style="fill:#fff;font-family:var(--mono);font-size:11px;font-weight:600">${tl}</text>`);
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("width", W); svg.setAttribute("height", H);
+  svg.innerHTML = parts.join("");
 }
+
+// --- Fil des moments clés et vérité terrain ---------------------------------------------
+const MOMENT_ICON = {
+  attack: '<svg viewBox="0 0 16 16"><path d="M8 1.5 14.5 8 8 14.5 1.5 8z" fill="var(--crit)"/></svg>',
+  doubt: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="var(--warn)"/><text x="8" y="11.5" text-anchor="middle" style="fill:var(--on-status);font:700 9.5px var(--mono)">?</text></svg>',
+  spread: '<svg viewBox="0 0 16 16"><path d="M2 8h9M8 4l4 4-4 4" fill="none" stroke="var(--crit)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  merge: '<svg viewBox="0 0 16 16"><path d="M3 3l5 5 5-5M8 8v6" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  calm: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5" fill="none" stroke="var(--noise-2)" stroke-width="2"/></svg>',
+};
 function renderMoments() {
-  const ul = document.getElementById("moments");
+  const ul = $("moments");
   if (!M.newMoments && !S.force && ul.childElementCount) return;
   ul.textContent = "";
-  const list = M.moments.map((m, i) => Object.assign({ i }, m)).sort((a, b) => b.t - a.t || b.i - a.i).slice(0, 14);
+  const list = M.moments.map((m, i) => Object.assign({ i }, m)).sort((a, b) => b.t - a.t || b.i - a.i).slice(0, 16);
   if (!list.length) { ul.appendChild(el("li", "empty", "Rien de notable pour l'instant.")); return; }
   const fresh = M.moments.length - M.newMoments;
-  const colors = { attack: "--st-contain", doubt: "--st-investigate", spread: "--st-contain", merge: "--accent", calm: "--st-monitor" };
   for (const m of list) {
     const li = el("li", m.i >= fresh && !S.force ? "new" : "");
     li.appendChild(el("span", "time", fmtT(m.t)));
-    const ic = el("span", "ic"); ic.style.background = `var(${colors[m.kind]})`; if (m.kind === "spread") ic.style.borderRadius = "2px"; li.appendChild(ic);
+    li.appendChild(html("span", "ic", MOMENT_ICON[m.kind]));
     li.appendChild(el("span", null, m.text));
     li.addEventListener("click", () => select(m.cluster));
     ul.appendChild(li);
   }
   M.newMoments = 0;
 }
+function renderTruth() {
+  const box = $("truthbox");
+  if (!S.meta.truth) { box.hidden = true; return; }
+  box.hidden = false; box.textContent = "";
+  box.appendChild(el("div", "eyebrow", "Contrôle : vérité terrain sur ce rejeu"));
+  const cells = el("div", "cells");
+  const jd = judged().filter(c => c.last.truth !== undefined);
+  for (const [kind, lab] of [["attack", "intrusions réelles"], ["suspect", "doutes réels"], ["noise", "bruit vraiment bénin"]]) {
+    const all = jd.filter(c => c.last.kind === kind), ok = all.filter(c => kind === "noise" ? !c.last.truth : c.last.truth).length;
+    const cell = el("div"); const n = el("div", "n", all.length ? `${ok}/${all.length}` : "—");
+    n.style.color = kind === "attack" ? "var(--crit)" : kind === "suspect" ? "var(--warn)" : "var(--text-2)";
+    cell.appendChild(n); cell.appendChild(el("div", "l", lab)); cells.appendChild(cell);
+  }
+  box.appendChild(cells);
+  box.appendChild(el("div", "note", "Indicateurs tirés du plan d'émulation public d'APT29. Les erreurs restent affichées : ce rejeu contient une fausse alerte classée « contenir »."));
+}
 
 // ===========================================================================
-// Vue analyste : courbes de probabilité, volume, cartes détaillées, flux, journal
+// Vue analyste : courbes de probabilité, cartes détaillées, flux, journal
 // ===========================================================================
 function pAt(c, t) { let p = null; for (const h of c.history) { if (h.t <= t) p = h.p; else break; } return p; }
 function endT(c) { return c.mergedT !== null ? c.mergedT : c.closed ? c.closedT : S.clock; }
-const P = { left: 44, right: 190, top: 10, bottom: 26, h: 300 };
+const P = { left: 44, right: 200, top: 10, bottom: 26, h: 380 };
 function renderPChart() {
-  const svg = document.getElementById("p-chart"), W = document.getElementById("p-wrap").clientWidth;
-  if (!S.meta || !W) return;
+  const svg = $("p-chart"), W = $("p-wrap").clientWidth - 32;
+  if (W <= 0) return;
   const H = P.h, pw = W - P.left - P.right, ph = H - P.top - P.bottom;
   const x = t => P.left + (t / S.meta.duration) * pw, y = p => P.top + (1 - p) * ph;
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("width", W); svg.setAttribute("height", H);
-  const parts = [];
+  const parts = [], grid = css("--line"), sel = S.selected ? resolve(S.selected) : null;
   for (const v of [0, 0.25, 0.5, 0.75, 1]) {
-    parts.push(`<line x1="${P.left}" x2="${P.left + pw}" y1="${y(v)}" y2="${y(v)}" stroke="${css("--grid")}"/>`);
+    parts.push(`<line x1="${P.left}" x2="${P.left + pw}" y1="${y(v)}" y2="${y(v)}" stroke="${grid}"/>`);
     parts.push(`<text x="${P.left - 8}" y="${y(v) + 4}" text-anchor="end">${v * 100} %</text>`);
   }
   const step = S.meta.duration > 1200 ? 300 : 120;
   for (let t = 0; t <= S.meta.duration; t += step) parts.push(`<text x="${x(t)}" y="${H - 6}" text-anchor="middle">${Math.round(t / 60)} min</text>`);
-  for (const [v, lab] of [[S.meta.investigate_min, "seuil d'investigation"], [S.meta.contain_min, "confinement possible"]]) {
-    parts.push(`<line x1="${P.left}" x2="${P.left + pw}" y1="${y(v)}" y2="${y(v)}" stroke="${css("--ink-2")}" stroke-dasharray="4 4" opacity=".6"/>`);
-    parts.push(`<text x="${P.left + 6}" y="${y(v) - 5}">${lab} (${dec2(v)})</text>`);
+  for (const [v, lab, col] of [[S.meta.investigate_min, "seuil de doute", "--warn"], [S.meta.contain_min, "seuil de confinement", "--crit"]]) {
+    parts.push(`<line x1="${P.left}" x2="${P.left + pw}" y1="${y(v)}" y2="${y(v)}" stroke="${css(col)}" stroke-dasharray="4 4" opacity=".7"/>`);
+    parts.push(`<text x="${P.left + 6}" y="${y(v) - 5}">${lab} (${pct(v)})</text>`);
   }
-  parts.push(`<line x1="${x(S.clock)}" x2="${x(S.clock)}" y1="${P.top}" y2="${P.top + ph}" stroke="${css("--accent")}" opacity=".6"/>`);
-  const hist = [...M.clusters.values()].filter(c => c.history.length)
-    .sort((a, b) => ACTIONS[a.last.action].rank - ACTIONS[b.last.action].rank);
+  parts.push(`<line x1="${x(S.clock)}" x2="${x(S.clock)}" y1="${P.top}" y2="${P.top + ph}" stroke="${css("--accent")}" opacity=".7"/>`);
+  const hist = [...M.clusters.values()].filter(c => c.history.length).sort((a, b) => ACTIONS[a.last.action].rank - ACTIONS[b.last.action].rank);
   const labels = [];
   for (const c of hist) {
     const act = c.last.action, end = Math.max(endT(c), c.history.at(-1).t);
     let d = "", prev = null;
     for (const h of c.history) { d += prev === null ? `M${x(h.t)},${y(h.p)}` : `H${x(h.t)}V${y(h.p)}`; prev = h.p; }
     d += `H${x(end)}`;
-    const quiet = act === "monitor" || c.mergedInto, sel = S.selected === c.id, faded = S.selected && !sel;
-    parts.push(`<path d="${d}" fill="none" stroke="${actionColor(act)}" stroke-width="${sel ? 3 : quiet ? 1.5 : 2}" stroke-linejoin="round" opacity="${faded ? 0.15 : quiet ? 0.45 : 1}"/>`);
+    const quiet = act === "monitor" || c.mergedInto, isSel = sel && sel.id === c.id, faded = sel && !isSel;
+    parts.push(`<path d="${d}" fill="none" stroke="${actionColor(act)}" stroke-width="${isSel ? 3 : quiet ? 1.2 : 2}" stroke-linejoin="round" opacity="${faded ? 0.15 : quiet ? 0.5 : 1}"/>`);
     parts.push(`<path d="${d}" fill="none" stroke="transparent" stroke-width="12" data-id="${c.id}" style="cursor:pointer"/>`);
     if (!quiet) {
-      for (const h of c.history) parts.push(`<circle cx="${x(h.t)}" cy="${y(h.p)}" r="4" fill="${actionColor(h.action)}" stroke="${css("--surface")}" stroke-width="2" opacity="${faded ? 0.2 : 1}"/>`);
+      for (const h of c.history) parts.push(`<circle cx="${x(h.t)}" cy="${y(h.p)}" r="3.5" fill="${actionColor(h.action)}" stroke="${css("--panel")}" stroke-width="2" opacity="${faded ? 0.2 : 1}"/>`);
       labels.push({ c, y: y(prev), x: x(end) });
     }
   }
-  // Étiquettes directes à droite : les 6 activités les plus suspectes, sans chevauchement.
-  const shown = labels.sort((a, b) => b.c.last.p - a.c.last.p).slice(0, 6).sort((a, b) => a.y - b.y);
+  const shown = labels.sort((a, b) => b.c.last.p - a.c.last.p).slice(0, 8).sort((a, b) => a.y - b.y);
   let lastY = -Infinity;
   for (const l of shown) { l.ly = Math.max(l.y, lastY + 15); lastY = l.ly; }
   const over = lastY - (P.top + ph); if (over > 0) shown.forEach(l => l.ly -= over);
   for (const l of shown) {
     const gx = P.left + pw + 10, nm = label(l.c);
-    parts.push(`<path d="M${l.x + 3},${l.y}L${gx - 2},${l.ly}" stroke="${css("--axis")}" fill="none"/>`);
-    parts.push(`<text x="${gx}" y="${l.ly + 4}" style="fill:${css("--ink-2")}">${esc(nm.length > 27 ? nm.slice(0, 26) + "…" : nm)}</text>`);
+    parts.push(`<path d="M${l.x + 3},${l.y}L${gx - 2},${l.ly}" stroke="${css("--line-2")}" fill="none"/>`);
+    parts.push(`<text x="${gx}" y="${l.ly + 4}" style="fill:${css("--text-2")}">${esc(nm.length > 28 ? nm.slice(0, 27) + "…" : nm)}</text>`);
   }
   svg.innerHTML = parts.join("");
-}
-const V = { left: 44, right: 190, top: 8, bottom: 22, h: 130 };
-function renderVChart() {
-  const svg = document.getElementById("v-chart"), W = document.getElementById("v-wrap").clientWidth;
-  if (!S.meta || !W) return;
-  const H = V.h, pw = W - V.left - V.right, ph = H - V.top - V.bottom;
-  const mins = Math.ceil(S.meta.duration / 60) || 1, bw = pw / mins;
-  const maxV = Math.max(10, ...M.perMin.map(r => r[0] + r[1] + r[2]));
-  const nice = maxV <= 50 ? Math.ceil(maxV / 10) * 10 : maxV <= 500 ? Math.ceil(maxV / 100) * 100 : Math.ceil(maxV / 500) * 500;
-  const y = v => V.top + ph - (v / nice) * ph;
-  svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("width", W); svg.setAttribute("height", H);
-  const parts = [];
-  for (const v of [0, nice / 2, nice]) {
-    parts.push(`<line x1="${V.left}" x2="${V.left + pw}" y1="${y(v)}" y2="${y(v)}" stroke="${css("--grid")}"/>`);
-    parts.push(`<text x="${V.left - 8}" y="${y(v) + 4}" text-anchor="end">${num(v)}</text>`);
-  }
-  const cols = [css("--sev-low"), css("--sev-mid"), css("--sev-high")], barW = Math.max(1, Math.min(24, bw - 2));
-  M.perMin.forEach((r, m) => {
-    let base = 0; const cx = V.left + m * bw + (bw - barW) / 2;
-    const topBand = r[2] ? 2 : r[1] ? 1 : 0;
-    r.forEach((v, b) => {
-      if (!v) return;
-      const y0 = y(base), y1 = y(base + v), hgt = Math.max(0, y0 - y1 - (base ? 2 : 0));
-      parts.push(`<rect x="${cx}" y="${y1}" width="${barW}" height="${hgt}" rx="${b === topBand ? 2 : 0}" fill="${cols[b]}"/>`);
-      base += v;
-    });
-    parts.push(`<rect x="${V.left + m * bw}" y="${V.top}" width="${bw}" height="${ph}" fill="transparent" data-min="${m}"/>`);
-  });
-  parts.push(`<line x1="${V.left}" x2="${V.left + pw}" y1="${y(0)}" y2="${y(0)}" stroke="${css("--axis")}"/>`);
-  const xs = t => V.left + (t / S.meta.duration) * pw;
-  parts.push(`<line x1="${xs(S.clock)}" x2="${xs(S.clock)}" y1="${V.top}" y2="${V.top + ph}" stroke="${css("--accent")}" opacity=".6"/>`);
-  svg.innerHTML = parts.join("");
-}
-function renderLegends() {
-  const p = document.getElementById("p-legend"); p.textContent = "";
-  for (const a of ["monitor", "investigate", "contain"]) {
-    const k = el("span", "key"); const l = el("span", "line"); l.style.background = `var(${ACTIONS[a].color})`;
-    k.appendChild(l); k.appendChild(document.createTextNode(ACTIONS[a].label)); p.appendChild(k);
-  }
-  const v = document.getElementById("v-legend"); v.textContent = "";
-  [["--sev-low", "niveau 0–6"], ["--sev-mid", "niveau 7–11"], ["--sev-high", "niveau 12–15"]].forEach(([c, t]) => {
-    const k = el("span", "key"); const r = el("span", "sw"); r.style.background = `var(${c})`; r.style.borderColor = `var(${c})`; r.style.borderRadius = "2px";
-    k.appendChild(r); k.appendChild(document.createTextNode(t)); v.appendChild(k);
-  });
 }
 function sparkline(hist) {
   const W = 92, H = 26; if (!hist.length) return "";
@@ -989,63 +1138,63 @@ function sparkline(hist) {
   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="${d}" fill="none" stroke="${actionColor(last.action)}" stroke-width="2" stroke-linejoin="round"/><circle cx="${x(t1)}" cy="${y(last.p)}" r="3" fill="${actionColor(last.action)}"/></svg>`;
 }
 function renderClusters() {
-  const box = document.getElementById("clusters"); const scroll = box.scrollTop;
-  const jd = judged();
+  const box = $("clusters"); const scroll = box.scrollTop;
+  const jd = judged(), sel = S.selected ? resolve(S.selected) : null;
   const byRank = (a, b) => ACTIONS[b.last.action].rank - ACTIONS[a.last.action].rank || b.last.p - a.last.p;
   const urgent = jd.filter(c => c.last.action !== "monitor").sort(byRank), monitored = jd.filter(c => c.last.action === "monitor").sort(byRank);
   box.textContent = "";
-  if (!jd.length) { box.appendChild(el("div", "empty", "Aucun cluster jugeable pour l'instant.")); return; }
+  if (!jd.length) { box.appendChild(el("div", "empty", "Aucune activité jugeable pour l'instant.")); return; }
   let group = null;
   for (const c of urgent) {
     if (c.last.action !== group) {
       group = c.last.action;
       const g = el("div", "group-title"); g.appendChild(badge(group));
-      g.appendChild(document.createTextNode(plural(urgent.filter(x => x.last.action === group).length, "cluster"))); box.appendChild(g);
+      g.appendChild(document.createTextNode(plural(urgent.filter(x => x.last.action === group).length, "activité"))); box.appendChild(g);
     }
-    box.appendChild(clusterCard(c));
+    box.appendChild(clusterCard(c, sel));
   }
   if (monitored.length) {
     const det = el("details", "monitored");
-    det.open = !!(S.selected && monitored.some(c => c.id === S.selected));
-    det.appendChild(el("summary", null, plural(monitored.length, "cluster") + " en surveillance (bruit de fond)"));
+    det.open = !!(sel && monitored.some(c => c.id === sel.id));
+    det.appendChild(el("summary", null, plural(monitored.length, "activité") + " en surveillance (bruit de fond)"));
     const ul = el("ul");
     for (const c of monitored) {
-      const li = el("li", null, `${c.id} · ${pct(c.last.p)} · ${c.alerts} alertes · ${c.last.dominant}`);
-      li.style.cursor = "pointer"; li.addEventListener("click", () => select(c.id)); ul.appendChild(li);
+      const li = el("li", null, `${c.id} · ${pct(c.last.p)} · ${c.alerts} al. · ${c.last.dominant}`);
+      li.addEventListener("click", () => select(c.id)); ul.appendChild(li);
     }
     det.appendChild(ul); box.appendChild(det);
   }
   box.scrollTop = scroll;
 }
-function clusterCard(c) {
+function clusterCard(c, sel) {
   const e = c.last;
-  const card = el("div", "ccard" + (S.selected === c.id ? " selected" : ""));
+  const card = el("div", "ccard" + (sel && sel.id === c.id ? " selected" : ""));
   card.tabIndex = 0; card.setAttribute("role", "button");
   card.addEventListener("click", () => select(c.id));
   const r1 = el("div", "row1"); const left = el("div", "nm");
   left.appendChild(letterEl(c)); left.appendChild(el("span", null, e.name));
   r1.appendChild(left); r1.appendChild(badge(e.action)); card.appendChild(r1);
-  card.appendChild(el("div", "ver", c.id + " · v" + e.version + (c.closed ? " · fermé" : "")));
+  card.appendChild(el("div", "ver", c.id + " · v" + e.version + (c.closed ? " · fermée" : "")));
   const r2 = el("div", "row2"); const pb = el("div");
   pb.appendChild(el("div", "prob", pct(e.p))); pb.appendChild(el("div", "meta", "P calibrée (brute " + pct(e.p_raw) + ")" + (e.priority != null ? " · priorité " + dec2(e.priority) + "/4" : "")));
-  r2.appendChild(pb); const sp = el("div"); sp.innerHTML = sparkline(c.history); r2.appendChild(sp); card.appendChild(r2);
+  r2.appendChild(pb); r2.appendChild(html("div", null, sparkline(c.history))); card.appendChild(r2);
   const meter = el("div", "meter"); const f = el("div"); f.style.width = e.p * 100 + "%"; f.style.background = actionColor(e.action); meter.appendChild(f); card.appendChild(meter);
-  card.appendChild(el("div", "meta", [...c.hostCounts.keys()].join(", ") + " · " + num(c.alerts) + " alertes · " + e.window_minutes + " min · niveau max " + e.max_level + (e.flags.length ? " · drapeaux : " + e.flags.join(", ") : "")));
+  card.appendChild(el("div", "meta", [...c.hostCounts.keys()].join(", ") + " · " + plural(c.alerts, "alerte") + " · " + e.window_minutes + " min · niveau max " + e.max_level + (e.flags.length ? " · drapeaux : " + e.flags.join(", ") : "")));
   if (e.mitre && e.mitre.length) card.appendChild(el("div", "mitre", "MITRE " + e.mitre.join(" → ")));
-  if (e.stage) card.appendChild(el("div", "meta", "Étape la plus avancée (modèle) : " + e.stage.replace(/_/g, " ") + " · règle dominante : " + e.dominant));
+  if (e.stage) card.appendChild(el("div", "meta", "Stade (Jev) : " + (STAGE_LABEL[e.stage] || e.stage) + " · règle dominante : " + e.dominant));
   const j = el("div", "just", "Justification : " + e.justification); j.title = e.justification; card.appendChild(j);
-  if (e.truth !== undefined) card.appendChild(el("div", "truth " + (e.truth ? "yes" : "no"), e.truth ? "✓ Vérité : actions de l'attaquant" : "✗ Vérité : aucun indicateur"));
+  if (e.truth !== undefined) card.appendChild(el("div", "truth meta " + (e.truth ? "yes" : "no"), e.truth ? "✓ Vérité : actions de l'attaquant" : "✗ Vérité : aucun indicateur"));
   return card;
 }
 function renderFeed() {
-  const ul = document.getElementById("feed");
+  const ul = $("feed");
   if (!M.newFeed && !S.force && ul.childElementCount) return;
   ul.textContent = "";
-  const cols = [css("--sev-low"), css("--sev-mid"), css("--sev-high")];
+  const cols = ["--noise-2", "--accent", "--crit"];
   for (const a of M.feed) {
     const li = el("li");
     li.appendChild(el("span", "time", fmtT(a.t)));
-    const lvl = el("span", "lvl"); const sw = el("i"); sw.style.background = cols[band(a.level)];
+    const lvl = el("span", "lvl"); const sw = el("i"); sw.style.background = `var(${cols[band(a.level)]})`;
     lvl.appendChild(sw); lvl.appendChild(document.createTextNode(a.level)); li.appendChild(lvl);
     li.appendChild(el("span", "host", a.host || "—"));
     const d = el("span", "desc", a.desc.replace(/\\\\/g, "\\")); d.title = d.textContent; li.appendChild(d);
@@ -1055,7 +1204,7 @@ function renderFeed() {
   M.newFeed = 0;
 }
 function renderLog() {
-  const ul = document.getElementById("log");
+  const ul = $("log");
   if (!M.newLog && !S.force && ul.childElementCount) return;
   ul.textContent = "";
   if (!M.log.length) { ul.appendChild(el("li", "empty", "Pas encore de décision.")); return; }
@@ -1080,47 +1229,48 @@ function renderLog() {
 // ===========================================================================
 function select(id) {
   if (!id) return;
-  let c = M.clusters.get(id);
-  while (c && c.mergedInto) c = M.clusters.get(c.mergedInto);
-  const target = c ? c.id : id;
-  S.selected = S.selected === target ? null : target;
+  const c = resolve(id), target = c ? c.id : id;
+  const cur = S.selected ? resolve(S.selected) : null;
+  S.selected = cur && cur.id === target ? null : target;
   rerender();
 }
 function placeTip(tip, wrap, px, py) {
   tip.style.display = "block";
   const w = tip.offsetWidth;
-  tip.style.left = Math.min(Math.max(wrap.scrollLeft, px + 14), wrap.scrollLeft + wrap.clientWidth - w) + "px";
+  tip.style.left = Math.min(Math.max(wrap.scrollLeft, px + 14), wrap.scrollLeft + wrap.clientWidth - w - 4) + "px";
   tip.style.top = Math.max(0, py - 10) + "px";
 }
 function tipRows(tip, title, rows) {
   tip.textContent = ""; tip.appendChild(el("div", "t", title));
   rows.filter(Boolean).forEach(r => tip.appendChild(el("div", "r", r)));
 }
+function clusterTip(c) {
+  const e = c.last;
+  return [
+    `${pct(e.p)} · ${ACTIONS[e.action].label}${e.doubt ? " · Jev hésite" : ""}`,
+    `${plural(c.alerts, "alerte")} · ${hostPath(c).map(h => h + " (" + num(c.hostCounts.get(h) || 0) + ")").join(" → ")}`,
+    e.summary && e.summary.length ? "Techniques : " + e.summary.join(", ") : "",
+    c.users.size ? "Comptes : " + [...c.users].slice(0, 4).join(", ") : "",
+    "Cliquer pour suivre cette activité",
+  ];
+}
 function setupTooltips() {
-  const gw = document.getElementById("g-wrap"), gt = document.getElementById("g-tip"), gs = document.getElementById("graph");
+  const gw = $("g-wrap"), gt = $("g-tip"), gs = $("graph");
   gs.addEventListener("pointermove", ev => {
-    const g = ev.target.closest("[data-cluster],[data-host],[data-noise]");
+    const g = ev.target.closest("[data-cluster],[data-host],[data-account],[data-doubt]");
     if (!g || !S.meta) { gt.style.display = "none"; return; }
-    if (g.dataset.cluster) {
-      const c = M.clusters.get(g.dataset.cluster), e = c.last;
-      tipRows(gt, label(c), [
-        `${pct(e.p)} · ${ACTIONS[e.action].label}${e.doubt ? " · Jev hésite" : ""}`,
-        `${num(c.alerts)} alertes · ${[...c.hostCounts.entries()].map(([h, n]) => h + " (" + num(n) + ")").join(", ")}`,
-        e.summary.length ? "Techniques : " + e.summary.join(", ") : "",
-        c.users.size ? "Comptes : " + [...c.users].slice(0, 4).join(", ") : "",
-        "Cliquer pour isoler cette activité",
-      ]);
-    } else if (g.dataset.host) {
-      const h = g.dataset.host, info = M.hosts.get(h);
-      const acts = threats().filter(c => c.hostCounts.has(h)).map(c => c.letter + " " + c.last.name);
-      tipRows(gt, "Machine " + h, [`${num(info.alerts)} alertes Wazuh`, info.users.size ? "Comptes vus : " + [...info.users].slice(0, 5).join(", ") : "",
-        acts.length ? "Activités : " + acts.slice(0, 4).join(" ; ") + (acts.length > 4 ? " ; …" : "") : "Aucune activité suspecte"]);
+    if (g.dataset.cluster) { const c = resolve(g.dataset.cluster); tipRows(gt, label(c), clusterTip(c)); }
+    else if (g.dataset.host || g.dataset.doubt) {
+      const h = g.dataset.host || g.dataset.doubt, info = M.hosts.get(h);
+      const acts = threats().filter(c => c.hostCounts.has(h));
+      const doubts = acts.filter(c => c.last.doubt);
+      tipRows(gt, "Machine " + h, [`${plural(info.alerts, "alerte")} Wazuh`, info.users.size ? "Comptes vus : " + [...info.users].slice(0, 5).join(", ") : "",
+        acts.length ? "Activités : " + acts.slice(0, 5).map(c => c.letter + " " + c.last.name).join(" ; ") : "Aucune activité suspecte",
+        doubts.length ? `Jev hésite sur ${doubts.map(c => c.letter + " (" + pct(c.last.p) + ")").join(", ")}` : ""]);
     } else {
-      const h = g.dataset.noise;
-      const list = judged().filter(c => c.last.kind === "noise" && c.hostCounts.has(h));
-      const top = {}; list.forEach(c => top[c.last.dominant] = (top[c.last.dominant] || 0) + 1);
-      tipRows(gt, `${plural(list.length, "groupe")} de bruit sur ${h}`, ["Jugés bénins par Jev (sous " + pct(S.meta.investigate_min) + ")",
-        ...Object.entries(top).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([d, n]) => n + " × " + d)]);
+      const u = g.dataset.account;
+      const hs = hostOrder().filter(h => M.hosts.get(h).users.has(u));
+      tipRows(gt, "Compte " + u, ["Vu sur " + hs.join(", "), "C'est ce compte commun qui relie les alertes de ces machines dans une même activité."]);
     }
     const rb = gw.getBoundingClientRect();
     placeTip(gt, gw, ev.clientX - rb.left + gw.scrollLeft, ev.clientY - rb.top);
@@ -1128,7 +1278,30 @@ function setupTooltips() {
   gs.addEventListener("pointerleave", () => gt.style.display = "none");
   gs.addEventListener("click", ev => { const g = ev.target.closest("[data-cluster]"); if (g) select(g.dataset.cluster); });
 
-  const pw = document.getElementById("p-wrap"), pt = document.getElementById("p-tip"), ps = document.getElementById("p-chart");
+  const lw = $("l-wrap"), lt = $("l-tip"), ls = $("lanes");
+  ls.addEventListener("pointermove", ev => {
+    const L = S.lanes; if (!L) return;
+    const r = ls.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
+    const mark = ev.target.closest("[data-cluster]");
+    const rb = lw.getBoundingClientRect();
+    if (mark) { const c = resolve(mark.dataset.cluster); tipRows(lt, label(c), ["Repérée à " + fmtT(c.spottedT), ...clusterTip(c)]); placeTip(lt, lw, ev.clientX - rb.left + lw.scrollLeft, ev.clientY - rb.top); return; }
+    const li = Math.floor((my - L.top) / L.laneH), bi = Math.floor((mx - L.left) / (L.plotW / L.nb));
+    if (li < 0 || li >= L.hosts.length || bi < 0 || bi >= L.nb) { lt.style.display = "none"; return; }
+    const b = L.bins[li][bi], t0 = bi * L.B;
+    tipRows(lt, `${L.hosts[li]} · ${fmtT(t0)} (${clockAt(t0)} UTC)`, [`${plural(b[0] + b[1] + b[2], "alerte")} sur ${Math.round(L.B)} s`,
+      b[2] ? `${b[2]} rattachée(s) à une intrusion` : "", b[1] ? `${b[1]} rattachée(s) à un doute` : "", b[0] ? `${b[0]} de bruit de fond` : ""]);
+    placeTip(lt, lw, ev.clientX - rb.left + lw.scrollLeft, ev.clientY - rb.top);
+  });
+  ls.addEventListener("pointerleave", () => lt.style.display = "none");
+  ls.addEventListener("click", ev => {
+    const mark = ev.target.closest("[data-cluster]");
+    if (mark) { select(mark.dataset.cluster); return; }
+    const L = S.lanes; if (!L || S.mode !== "recorded") return;
+    const r = ls.getBoundingClientRect(), t = ((ev.clientX - r.left - L.left) / L.plotW) * S.meta.duration;
+    if (t >= 0 && t <= S.meta.duration) { seek(t); render(); }
+  });
+
+  const pw = $("p-wrap"), pt = $("p-tip"), ps = $("p-chart");
   ps.addEventListener("pointermove", ev => {
     if (!S.meta) return;
     const r = ps.getBoundingClientRect(), t = ((ev.clientX - r.left - P.left) / (r.width - P.left - P.right)) * S.meta.duration;
@@ -1144,55 +1317,50 @@ function setupTooltips() {
   });
   ps.addEventListener("pointerleave", () => pt.style.display = "none");
   ps.addEventListener("click", ev => { const id = ev.target.getAttribute("data-id"); if (id) select(id); });
-
-  const vw = document.getElementById("v-wrap"), vt = document.getElementById("v-tip"), vs = document.getElementById("v-chart");
-  vs.addEventListener("pointermove", ev => {
-    const m = ev.target.getAttribute("data-min");
-    if (m === null) { vt.style.display = "none"; return; }
-    const r = M.perMin[+m] || [0, 0, 0];
-    tipRows(vt, `Minute ${m} → ${+m + 1}`, [`${num(r[2])} de niveau 12–15`, `${num(r[1])} de niveau 7–11`, `${num(r[0])} de niveau 0–6`]);
-    const rb = vw.getBoundingClientRect(); placeTip(vt, vw, ev.clientX - rb.left, ev.clientY - rb.top);
-  });
-  vs.addEventListener("pointerleave", () => vt.style.display = "none");
 }
-function updatePlay() { document.getElementById("play").textContent = S.playing ? "❚❚ Pause" : "▶ Lecture"; }
+function renderLegends() {
+  const add = (box, node, text) => { const k = el("span", "key"); k.appendChild(node); k.appendChild(document.createTextNode(text)); box.appendChild(k); };
+  const sw = c => { const s = el("span", "sw"); s.style.background = `var(${c})`; return s; };
+  const ln = (c, dashed) => { const s = el("span", "ln"); s.style.borderTopColor = `var(${c})`; if (dashed) s.style.borderTopStyle = "dashed"; return s; };
+  const g = $("g-legend"); g.textContent = "";
+  add(g, sw("--crit"), "intrusion"); add(g, sw("--warn"), "doute"); add(g, el("span", "q", "?"), "Jev hésite");
+  add(g, ln("--crit"), "propagation"); add(g, ln("--text-3", true), "compte partagé");
+  const l = $("l-legend"); l.textContent = "";
+  add(l, sw("--crit"), "alertes d'une intrusion"); add(l, sw("--warn"), "alertes d'un doute"); add(l, sw("--noise"), "bruit de fond");
+  add(l, ln("--crit"), "propagation");
+  const p = $("p-legend"); p.textContent = "";
+  for (const a of ["monitor", "investigate", "contain"]) add(p, ln(ACTIONS[a].color), ACTIONS[a].label);
+}
+function updatePlay() { $("play").textContent = S.playing ? "❚❚ Pause" : "▶ Lecture"; S.dirty = true; }
 function showView(view) {
   S.view = view;
-  document.getElementById("view-overview").hidden = view !== "overview";
-  document.getElementById("view-analyst").hidden = view !== "analyst";
-  document.getElementById("tab-overview").setAttribute("aria-selected", view === "overview");
-  document.getElementById("tab-analyst").setAttribute("aria-selected", view === "analyst");
+  $("view-overview").hidden = view !== "overview";
+  $("view-analyst").hidden = view !== "analyst";
+  $("tab-overview").setAttribute("aria-selected", view === "overview");
+  $("tab-analyst").setAttribute("aria-selected", view === "analyst");
   try { history.replaceState(null, "", view === "analyst" ? "#analyste" : "#"); } catch (e) { /* cadre restreint */ }
   rerender();
 }
 function setupControls() {
-  const seg = document.getElementById("speeds");
+  const seg = $("speeds");
   for (const s of SPEEDS) {
     const b = el("button", null, "×" + s); b.setAttribute("aria-pressed", s === S.speed);
-    b.addEventListener("click", () => { S.speed = s; [...seg.children].forEach(c => c.setAttribute("aria-pressed", c === b)); });
+    b.addEventListener("click", () => { S.speed = s; [...seg.children].forEach(c => c.setAttribute("aria-pressed", c === b)); S.dirty = true; });
     seg.appendChild(b);
   }
-  document.getElementById("play").addEventListener("click", () => {
+  $("play").addEventListener("click", () => {
     if (S.ended) { seek(0); S.playing = true; } else S.playing = !S.playing;
     updatePlay();
   });
-  document.getElementById("restart").addEventListener("click", () => { seek(0); S.playing = true; updatePlay(); });
-  const truth = document.getElementById("truth");
-  truth.addEventListener("click", () => {
+  $("restart").addEventListener("click", () => { seek(0); S.playing = true; updatePlay(); });
+  $("truth").addEventListener("click", () => {
     const on = !document.body.classList.contains("show-truth");
-    document.body.classList.toggle("show-truth", on); truth.setAttribute("aria-pressed", on);
+    document.body.classList.toggle("show-truth", on); $("truth").setAttribute("aria-pressed", on);
     rerender();
   });
-  document.getElementById("theme").addEventListener("click", () => {
-    const root = document.documentElement;
-    const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
-    root.dataset.theme = dark ? "light" : "dark";
-    try { localStorage.setItem("jevsoc-theme", root.dataset.theme); } catch (e) { /* stockage indisponible */ }
-    rerender();
-  });
-  document.getElementById("tab-overview").addEventListener("click", () => showView("overview"));
-  document.getElementById("tab-analyst").addEventListener("click", () => showView("analyst"));
-  const prog = document.getElementById("progress");
+  $("tab-overview").addEventListener("click", () => showView("overview"));
+  $("tab-analyst").addEventListener("click", () => showView("analyst"));
+  const prog = $("progress");
   prog.addEventListener("click", ev => {
     if (S.mode !== "recorded" || !S.meta) return;
     const r = prog.getBoundingClientRect();
@@ -1203,7 +1371,7 @@ function setupControls() {
     const d = ev.key === "ArrowRight" ? 60 : ev.key === "ArrowLeft" ? -60 : 0;
     if (d) { ev.preventDefault(); seek(Math.max(0, Math.min(S.meta.duration, S.clock + d))); render(); }
   });
-  document.addEventListener("keydown", ev => { if (ev.key === " " && ev.target === document.body) { ev.preventDefault(); document.getElementById("play").click(); } });
+  document.addEventListener("keydown", ev => { if (ev.key === " " && ev.target === document.body) { ev.preventDefault(); $("play").click(); } });
   new ResizeObserver(() => rerender()).observe(document.querySelector(".wrap"));
 }
 
@@ -1211,16 +1379,15 @@ function setupControls() {
 // Démarrage : enregistrement embarqué, sinon serveur (enregistrement ou direct)
 // ===========================================================================
 (async function main() {
-  try { const t = localStorage.getItem("jevsoc-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) { /* stockage indisponible */ }
-  renderGraphLegend(); renderLegends(); setupControls(); setupTooltips();
+  renderLegends(); setupControls(); setupTooltips();
   if (location.hash === "#analyste") showView("analyst");
-  const embedded = document.getElementById("recording");
+  const embedded = $("recording");
   if (embedded) { startRecorded(JSON.parse(embedded.textContent)); return; }
   try {
     const cfg = await (await fetch("config.json")).json();
     if (cfg.mode === "live") startLive(); else startRecorded(await (await fetch("recording.json")).json());
   } catch (e) {
-    document.getElementById("headline").textContent = "Données introuvables : lancer « python scripts/demo.py serve --recording … »";
+    $("focus").textContent = "Données introuvables : lancer « python scripts/demo.py serve --recording … »";
   }
 })();
 </script>

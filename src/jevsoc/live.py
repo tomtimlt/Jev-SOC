@@ -23,7 +23,7 @@ from collections.abc import Callable
 from jevsoc.collector import Alert
 from jevsoc.correlator import IncrementalCorrelator, LiveCluster, is_judgeable
 from jevsoc.models import Decision
-from jevsoc.naming import name_cluster, technique_label
+from jevsoc.naming import name_cluster, tactics_of, technique_label
 from jevsoc.policy import policy
 from jevsoc.serializer import serialize
 
@@ -114,6 +114,7 @@ class LiveEngine:
             "max_level": state["max_rule_level"],
             "window_minutes": state["window_minutes"],
             "mitre": mitre_chain(cluster.alerts),
+            "tactics": tactics_of(cluster.alerts),  # toutes les alertes, ordre de la kill chain
             "timeline": [
                 {k: e[k] for k in ("t", "host", "level", "desc", "count") if k in e}
                 for e in state["timeline"][:8]
