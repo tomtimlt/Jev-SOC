@@ -149,7 +149,7 @@ h1, h2, h3 { text-wrap: balance; margin: 0; }
 .act .p { font: 600 13px var(--mono); font-variant-numeric: tabular-nums; display: inline-flex; gap: 6px; align-items: center; }
 .act .bar { grid-column: 2 / 4; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; }
 .act .bar div { height: 100%; border-radius: 2px; }
-.truth-i { display: none; font: 500 11px var(--mono); white-space: nowrap; }
+.truth-i { display: none; font: 500 11px var(--mono); }
 body.show-truth .truth-i { display: inline; }
 .more { color: var(--text-3); font-size: 12px; padding: 6px 8px; }
 svg { display: block; overflow: visible; }
@@ -953,7 +953,11 @@ function renderActs() {
     it.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(c.id); } });
     it.appendChild(letterEl(c));
     const nm = el("span", "nm", e.name);
-    if (e.truth !== undefined) nm.appendChild(el("span", "truth-i " + (e.truth ? "yes" : "no"), e.truth ? " ✓ réelle" : " ✗ fausse alerte"));
+    if (e.truth !== undefined) {
+      const t = el("span", "truth-i " + (e.truth ? "yes" : "no"), e.truth ? " ✓\u00a0réelle" : " ✗\u00a0FP");  // espace insécable : le signe reste avec son mot
+      t.title = e.truth ? "Vérité terrain : actions réelles de l'attaquant" : "Vérité terrain : faux positif";
+      nm.appendChild(t);
+    }
     it.appendChild(nm);
     const p = el("span", "p"); if (e.doubt) p.appendChild(el("span", "qmark", "?")); p.appendChild(document.createTextNode(pct(e.p))); it.appendChild(p);
     const bar = el("div", "bar"); const f = el("div"); f.style.width = e.p * 100 + "%"; f.style.background = kindColor(e.kind); bar.appendChild(f); it.appendChild(bar);
