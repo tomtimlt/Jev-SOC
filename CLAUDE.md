@@ -286,6 +286,8 @@ jev-soc/
   chronologie par machine ; vue analyste SOC. Noms, `kind` (attack/suspect/noise) et `tactics`
   déterministes : `src/jevsoc/naming.py` ; `doubt` = P entre les seuils. L'API Jev varie un peu
   d'un appel à l'autre (mêmes actions, P ±0,08) : la démo rejoue un enregistrement figé.
+- README en anglais (vitrine du dépôt) ; captures et vidéo de la démo dans `docs/` (demo.gif,
+  demo.mp4, demo_hd.png, demo_end_ground_truth.png). La page et les commentaires restent en français.
 - Résultats (README) : AIT test 5/5 chaînes à 0 FP/jour ; APT29 (Windows, jamais réglé dessus)
   9/9 attaques dont 5/5 chaînes, F1 0,75 vs 0,25 pour max_level >= 7, ECE 0,30 -> 0,08 ; la
   règle de volume aide sur Linux (scans) mais nuit sur Windows.
